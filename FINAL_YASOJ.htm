@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>داشبورد پروژه‌های سنجش از دور و GIS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Base styles for the body with a unique gradient background */
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            color: #44403c; /* stone-700 */
+            background: linear-gradient(135deg, #fdf2e9, #fbe9e7, #f7e0e5); /* Subtle, warm gradient */
+            background-size: 400% 400%;
+            animation: gradientAnimation 15s ease infinite; /* Smooth, slow animation */
+        }
+
+        /* Keyframe animation for the background gradient */
+        @keyframes gradientAnimation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Consistent styling for containers (cards) */
+        .chart-container,
+        .details-card,
+        .results-item-card,
+        .section-container {
+            background-color: #ffffff; /* White background for cards */
+            border-radius: 1rem; /* Slightly more rounded for a modern look */
+            padding: 1.5rem; /* Consistent padding */
+            /* Enhanced shadow for a more premium, floating effect */
+            box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.1), 0 8px 12px -4px rgba(0, 0, 0, 0.08);
+            transition: all 0.4s ease-in-out; /* Smoother transition */
+            margin-left: auto; /* Center align */
+            margin-right: auto; /* Center align */
+            border: 1px solid rgba(231, 229, 228, 0.6); /* Subtle light border */
+        }
+
+        .chart-container:hover,
+        .details-card:hover,
+        .results-item-card:hover,
+        .section-container:hover {
+            transform: translateY(-8px) scale(1.01); /* More pronounced lift and slight scale on hover */
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 15px 20px -8px rgba(0, 0, 0, 0.15); /* Deeper shadow on hover */
+            background-color: #f8fafc; /* Very light blue-gray on hover for subtle feedback */
+        }
+
+        /* Specific container adjustments */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 700px;
+            height: 400px;
+            max-height: 450px;
+        }
+        .map-chart-container {
+            height: 500px;
+            max-height: 550px;
+        }
+        .sunburst-chart-container {
+            max-width: 900px;
+            height: 600px;
+            max-height: 650px;
+            padding: 2rem;
+        }
+        .treemap-chart-container { /* Specific style for treemap chart - though not used in this version, kept for consistency */
+            max-width: 900px;
+            height: 550px;
+            max-height: 600px;
+            padding: 2rem;
+        }
+
+        /* Responsive adjustments for containers */
+        @media (max-width: 768px) {
+            .chart-container { height: 350px; padding: 1rem; }
+            .map-chart-container { height: 450px; }
+            .sunburst-chart-container, .treemap-chart-container { max-width: 100%; height: 450px; padding: 1.5rem; }
+        }
+        @media (max-width: 480px) {
+            .chart-container { height: 300px; padding: 0.75rem; }
+            .map-chart-container { height: 400px; }
+            .sunburst-chart-container, .treemap-chart-container { height: 350px; padding: 1rem; }
+        }
+
+        /* Typography and general text styles */
+        h1, h2 {
+            color: #0c4a6e; /* sky-800 */
+        }
+        /* Enhanced H1 title with subtle shadow */
+        h1 {
+            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); /* Subtle text shadow */
+        }
+        .section-intro {
+            font-size: 1.1em;
+            line-height: 1.8;
+            margin-bottom: 2.5rem;
+            color: #3f3f46; /* zinc-700 */
+            text-align: justify;
+        }
+
+        /* Details card specific styling - inherits from .chart-container */
+        .details-card {
+            background-color: #fafaf9; /* stone-50 */
+            border: 1px solid #e7e5e4; /* stone-200 */
+            margin-top: 1.5rem;
+        }
+        .details-card h3 {
+             color: #0ea5e9; /* sky-500 */
+             margin-bottom: 1rem;
+             font-size: 1.5rem;
+             font-weight: bold;
+        }
+        .details-card p {
+            margin-bottom: 0.5rem;
+            line-height: 1.8;
+        }
+        .details-card strong {
+            color: #0c4a6e; /* sky-800 */
+        }
+        .detail-item {
+            margin-bottom: 1.25rem;
+            padding-bottom: 1.25rem;
+            border-bottom: 1px dashed #d6d3d1; /* stone-300 */
+        }
+        .detail-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .detail-item strong {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 1.2em;
+            color: #0c4a6e;
+        }
+
+        /* Dropdown styling */
+        select#project-dropdown, select.radar-project-dropdown {
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            background-color: #ffffff;
+            border: 1px solid #d6d3d1;
+            border-radius: 0.75rem; /* Slightly more rounded for inputs */
+            padding: 0.75rem 1rem; /* Adjusted padding */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Subtle shadow for inputs */
+        }
+        select#project-dropdown:hover, select.radar-project-dropdown:hover {
+            border-color: #0ea5e9; /* sky-500 */
+            box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.25); /* More prominent focus ring */
+        }
+
+        /* Results section content grid */
+        .results-section-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        /* Results card styling - inherits from general card styles */
+        .results-card {
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease-in-out;
+        }
+        .results-card:hover {
+            transform: translateY(-5px);
+        }
+        .results-card h4 {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #0c4a6e;
+            margin-bottom: 0.75rem;
+        }
+        .results-card p {
+            font-size: 0.95em;
+            line-height: 1.7;
+            color: #57534e;
+        }
+
+        /* Domain filter buttons */
+        .domain-filter-button {
+            @apply px-5 py-2 rounded-full text-sm font-semibold transition-all duration-300 ease-in-out; /* More rounded, smoother transition */
+            @apply bg-gray-200 text-gray-700 hover:bg-gray-300 hover:text-gray-800;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); /* Subtle shadow */
+        }
+        .domain-filter-button.active {
+            @apply bg-sky-600 text-white hover:bg-sky-700;
+            box-shadow: 0 4px 8px rgba(14, 165, 233, 0.3); /* More prominent shadow when active */
+            transform: translateY(-2px); /* Slight lift when active */
+        }
+
+        /* Styles for the graphical results/database items - inherits from general card styles */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        .results-item-card {
+            /* Inherits most styles from .chart-container, just adding specific overrides */
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+        }
+        .results-item-card .icon {
+            font-size: 3.5rem; /* Larger icon */
+            margin-bottom: 1rem;
+            color: #0ea5e9; /* sky-500 */
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.1); /* Subtle icon shadow */
+        }
+        .results-item-card h4 {
+            font-size: 1.5rem; /* Larger title */
+            font-weight: bold;
+            color: #0c4a6e;
+            margin-bottom: 0.75rem;
+        }
+        .results-item-card p {
+            font-size: 1.05em; /* Slightly larger text */
+            line-height: 1.7;
+            color: #57534e;
+        }
+
+        /* Styles for Key Metrics Cards */
+        .metric-card {
+            background-color: #f0f9ff; /* sky-50 */
+            border: 1px solid #e0f2fe; /* sky-100 */
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+        }
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .metric-card .value {
+            font-size: 2.5rem; /* text-4xl */
+            font-weight: bold;
+            color: #0284c7; /* sky-600 */
+            margin-bottom: 0.5rem;
+        }
+        .metric-card .label {
+            font-size: 1.1rem; /* text-lg */
+            color: #3f3f46; /* zinc-700 */
+        }
+
+        /* Styles for Project Timeline */
+        .timeline-container {
+            overflow-x: auto; /* Enable horizontal scrolling for wide timelines */
+            padding-bottom: 1rem;
+        }
+        .timeline-grid {
+            display: grid;
+            /* grid-template-columns will be set dynamically by JS */
+            gap: 0.5rem;
+            min-width: 800px; /* Ensure enough width for timeline */
+        }
+        .timeline-header, .timeline-cell {
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            font-size: 0.875rem; /* text-sm */
+        }
+        .timeline-header {
+            background-color: #e2e8f0; /* slate-200 */
+            font-weight: bold;
+            color: #1e293b; /* slate-800 */
+            position: sticky;
+            left: 0;
+            z-index: 10;
+        }
+        .timeline-month {
+            background-color: #cbd5e1; /* slate-300 */
+            color: #1e293b;
+            font-weight: bold;
+        }
+        .timeline-project-name {
+            background-color: #f1f5f9; /* slate-100 */
+            text-align: right;
+            font-weight: 500;
+            color: #334155; /* slate-700 */
+            position: sticky;
+            left: 0;
+            z-index: 5;
+        }
+        .timeline-bar {
+            background-color: #38bdf8; /* sky-400 */
+            height: 80%;
+            border-radius: 0.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.75rem; /* text-xs */
+            font-weight: bold;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .timeline-empty {
+            background-color: #f8fafc; /* slate-50 */
+        }
+    </style>
+</head>
+<body class="text-stone-800">
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl py-12">
+        <header class="text-center mb-16">
+            <h1 class="text-5xl md:text-6xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-sky-600 to-blue-800">
+                📡 داشبورد پروژه‌های سنجش از دور و GIS
+            </h1>
+            <h2 class="text-3xl md:text-4xl font-semibold text-sky-700">
+                چشم‌اندازی نو در مدیریت هوشمند استان کهگیلویه و بویراحمد
+            </h2>
+        </header>
+
+        <hr class="my-12 border-stone-300">
+
+        <section id="introduction" class="mb-16">
+            <h2 class="text-3xl font-bold mb-6 text-center">مقدمه: سنجش از دور و GIS در قلب توسعه کهگیلویه و بویراحمد</h2>
+            <p class="section-intro max-w-4xl mx-auto">
+                استان کهگیلویه و بویراحمد، با طبیعت بکر، منابع آبی غنی و موقعیت کوهستانی خاص در زاگرس، دارای پتانسیل‌های بی‌نظیری برای توسعه است. اما این استان نیز با چالش‌های منحصربه‌فردی نظیر مدیریت جنگل‌ها و مراتع، فرسایش خاک، مخاطرات طبیعی مانند زمین‌لغزش و سیلاب، و بهینه‌سازی کشاورزی در مناطق کوهستانی روبرو است. در این میان، فناوری‌های نوین سنجش از دور (Remote Sensing) و سیستم اطلاعات جغرافیایی (GIS) به عنوان ابزارهایی قدرتمند و تحول‌آفرین، نقش حیاتی در پایش، تحلیل و برنامه‌ریزی برای حل این چالش‌ها ایفا می‌کنند.
+                <br><br>
+                این داشبورد تعاملی، دروازه‌ای به سوی مجموعه‌ای از پروژه‌های پیشرو در حوزه سنجش از دور و GIS است که به طور خاص برای پاسخگویی به نیازها و چالش‌های منحصربه‌فرد استان کهگیلویه و بویراحمد طراحی شده‌اند. هدف ما، فراتر از ارائه داده‌های خام، نمایش یک دیدگاه جامع و چندبعدی از هر پروژه است؛ دیدگاهی که شامل اهمیت استراتژیک، فوریت اجرایی، پیچیدگی‌های فنی، و برآورد هزینه‌ها و زمان‌بندی می‌شود. با کاوش در این داشبورد، شما نه تنها با پتانسیل بی‌کران این فناوری‌ها آشنا خواهید شد، بلکه درک عمیق‌تری از چگونگی مشارکت آن‌ها در پیشبرد اهداف کلان توسعه پایدار، مدیریت هوشمند منابع و ارتقاء کیفیت زندگی در کهگیلویه و بویراحمد به دست خواهید آورد. این پروژه‌ها در حوزه‌های حیاتی نفت و گاز، محیط زیست، برق و انرژی، کشاورزی, شهرسازی، زمین‌شناسی و مخاطرات طبیعی دسته‌بندی شده‌اند تا تصویری جامع و الهام‌بخش از کاربردهای گسترده سنجش از دور و GIS در خدمت توسعه کشور ارائه دهند.
+            </p>
+        </section>
+
+        <hr class="my-12 border-stone-300">
+
+        <section id="key-metrics" class="section-container mb-16">
+            <h2 class="text-center mb-6">📊 خلاصه معیارهای کلیدی</h2>
+            <p class="section-intro text-center max-w-3xl mx-auto">
+                این بخش به شما دیدی سریع از مهم‌ترین شاخص‌های عملکردی پروژه‌ها ارائه می‌دهد.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="metric-card">
+                    <div class="value" id="total-projects">0</div>
+                    <div class="label">کل پروژه‌ها</div>
+                </div>
+                <div class="metric-card">
+                    <div class="value" id="avg-importance">0</div>
+                    <div class="label">میانگین اهمیت</div>
+                </div>
+                <div class="metric-card">
+                    <div class="value" id="active-domains">0</div>
+                    <div class="label">حوزه‌های فعال</div>
+                </div>
+            </div>
+        </section>
+
+        <hr class="my-12 border-stone-300">
+
+        <section id="overview" class="mb-16">
+            <h2 class="text-3xl font-bold mb-6 text-center">📊 مرور کلی و تحلیل چندبعدی پروژه‌ها</h2>
+            <p class="section-intro text-center max-w-3xl mx-auto">
+                این بخش یک نگاه کلی به پروژه‌های تعریف شده در استان کهگیلویه و بویراحمد ارائه می‌دهد. نمودار رادار به شما امکان می‌دهد تا پروفایل چندبعدی هر پروژه را بر اساس معیارهای اهمیت، فوریت، هزینه، زمان انجام و پیچیدگی روش مشاهده کنید. نمودار پراکندگی نیز رابطه بین اهمیت و فوریت پروژه‌ها را به تصویر می‌کشد. این اطلاعات به درک بهتر اولویت‌ها و تمرکز فعالیت‌ها کمک می‌کند.
+            </p>
+            <div class="grid md:grid-cols-2 gap-10 mb-8">
+                <div>
+                    <h3 class="text-2xl font-semibold mb-4 text-center">پروفایل چندبعدی پروژه‌ها (مقایسه دو پروژه)</h3>
+                    <div class="flex flex-col items-center gap-4 mb-4">
+                        <label for="radar-project-dropdown-1" class="block text-lg font-semibold">پروژه اول:</label>
+                        <select id="radar-project-dropdown-1" class="radar-project-dropdown w-2/3 md:w-1/2 p-3 border border-stone-300 rounded-lg focus:ring-sky-500 focus:border-sky-500 text-base shadow-sm"></select>
+                        <label for="radar-project-dropdown-2" class="block text-lg font-semibold">پروژه دوم:</label>
+                        <select id="radar-project-dropdown-2" class="radar-project-dropdown w-2/3 md:w-1/2 p-3 border border-stone-300 rounded-lg focus:ring-sky-500 focus:border-sky-500 text-base shadow-sm"></select>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="radarChart"></canvas>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-2xl font-semibold mb-4 text-center">🔀 پراکندگی اهمیت و فوریت پروژه‌ها</h3>
+                    <div class="flex flex-wrap justify-center gap-2 mb-4" id="domain-filter-buttons">
+                        <button class="domain-filter-button active" data-domain="همه">همه</button>
+                        <button class="domain-filter-button" data-domain="نفت و گاز">نفت و گاز</button>
+                        <button class="domain-filter-button" data-domain="محیط زیست">محیط زیست</button>
+                        <button class="domain-filter-button" data-domain="برق و انرژی">برق و انرژی</button>
+                        <button class="domain-filter-button" data-domain="صنعت">صنعت</button>
+                        <button class="domain-filter-button" data-domain="کشاورزی">کشاورزی</button>
+                        <button class="domain-filter-button" data-domain="شهرسازی">شهرسازی</button>
+                        <button class="domain-filter-button" data-domain="زمین‌شناسی">زمین‌شناسی</button>
+                        <button class="domain-filter-button" data-domain="مخاطرات طبیعی">مخاطرات طبیعی</button>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="urgencyScatterChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <hr class="my-12 border-stone-300">
+
+        <section id="geographic" class="mb-16">
+            <h2 class="text-3xl font-bold mb-6 text-center">🗺️ توزیع جغرافیایی پروژه‌ها</h2>
+            <p class="section-intro text-center max-w-3xl mx-auto">
+                نقشه زیر موقعیت جغرافیایی تقریبی پروژه‌های مختلف را در سطح استان کهگیلویه و بویراحمد نمایش می‌دهد. هر نقطه نشان‌دهنده یک پروژه است که با حرکت ماوس روی آن می‌توانید نام پروژه را مشاهده کنید. اندازه نقاط متناسب با اهمیت پروژه و رنگ آن‌ها نشان‌دهنده حوزه فعالیت پروژه است. این نقشه به شناسایی تمرکز مکانی پروژه‌ها کمک می‌کند.
+            </p>
+            <div class="chart-container map-chart-container mx-auto">
+                <div id="mapBoxPlot" style="width:100%; height:100%;"></div>
+            </div>
+        </section>
+
+        <hr class="my-12 border-stone-300">
+
+        <section id="sunburst" class="mb-16">
+            <h2 class="text-3xl font-bold mb-6 text-center">🌍 نمودار درختی فعالیت‌های کلیدی</h2>
+            <p class="section-intro text-center max-w-3xl mx-auto">
+                نمودار خورشیدی زیر، یک نمایش سلسله مراتبی از فعالیت‌های کلیدی در حوزه‌های اصلی نفت و گاز، محیط زیست و انرژی ارائه می‌دهد. با کلیک بر روی هر بخش می‌توانید به سطوح پایین‌تر وارد شوید و جزئیات بیشتری را مشاهده کنید. اندازه هر قطاع نشان‌دهنده اهمیت نسبی آن فعالیت یا حوزه است. با نگه داشتن ماوس روی هر فعالیت، می‌توانید اطلاعاتی در مورد داده‌های مورد نیاز و الگوریتم‌های استفاده شده در آن پروژه مشاهده کنید.
+            </p>
+            <div class="chart-container sunburst-chart-container mx-auto">
+                <div id="sunburstChart" style="width:100%; height:100%;"></div>
+            </div>
+        </section>
+
+        <hr class="my-12 border-stone-300">
+
+        <section id="project-timeline" class="section-container mb-16">
+            <h2 class="text-center mb-6">🗓️ نمودار زمانی پروژه‌ها</h2>
+            <p class="section-intro text-center max-w-3xl mx-auto">
+                نمایش بصری مدت زمان و همپوشانی پروژه‌ها در طول زمان.
+            </p>
+            <div class="timeline-container">
+                <div id="timelineGrid" class="timeline-grid">
+                </div>
+            </div>
+        </section>
+
+        <hr class="my-12 border-stone-300">
+
+        <section id="results" class="mb-16">
+            <h2 class="text-3xl font-bold mb-6 text-center">📈 نتایج و اهداف توسعه ملی: چشم‌انداز پروژه‌های سنجش از دور در کهگیلویه و بویراحمد</h2>
+            <p class="section-intro max-w-4xl mx-auto">
+                پروژه‌های سنجش از دور و GIS معرفی شده در این داشبورد، فراتر از کاربردهای فنی، نقش محوری در تحقق اهداف کلان توسعه ملی و منطقه‌ای ایفا می‌کنند. خروجی‌های این پروژه‌ها به طور مستقیم به بهبود مدیریت منابع، افزایش تاب‌آوری در برابر بحران‌ها و ارتقاء کیفیت زندگی در استان کهگیلویه و بویراحمد کمک می‌کنند. در ادامه به برخی از مهم‌ترین نتایج و ارتباط آن‌ها با اهداف توسعه کشور می‌پردازیم:
+            </p>
+            <div class="results-grid">
+                <div class="results-item-card">
+                    <span class="icon">💰</span>
+                    <h4>اقتصاد مقاومتی و بهینه‌سازی منابع</h4>
+                    <p>پایش نشت نفت و مدیریت آبیاری مزارع نیشکر، به کاهش هدررفت منابع حیاتی و افزایش بهره‌وری منجر می‌شود.</p>
+                </div>
+                <div class="results-item-card">
+                    <span class="icon">🌾</span>
+                    <h4>امنیت غذایی و کشاورزی پایدار</h4>
+                    <p>پروژه‌های پایش سلامت محصولات کشاورزی و شناسایی اراضی شور، ابزارهای کلیدی برای افزایش تولید و تضمین امنیت غذایی هستند.</p>
+                </div>
+                <div class="results-item-card">
+                    <span class="icon">🌳</span>
+                    <h4>توسعه پایدار و حفاظت از محیط زیست</h4>
+                    <p>مدل‌سازی خشکسالی، پایش گردوغبار و حفاظت از تالاب‌ها، مستقیماً به حفظ اکوسیستم‌ها و ارتقاء سلامت عمومی کمک می‌کند.</p>
+                </div>
+                <div class="results-item-card">
+                    <span class="icon">🚨</span>
+                    <h4>مدیریت بحران و تاب‌آوری شهری</h4>
+                    <p>تحلیل ریسک سیلاب، نقشه‌برداری گسل‌ها و پایش فرونشست زمین، به برنامه‌ریزی برای کاهش مخاطرات طبیعی و افزایش تاب‌آوری جوامع کمک می‌کند.</p>
+                </div>
+                <div class="results-item-card">
+                    <span class="icon">🏙️</span>
+                    <h4>برنامه‌ریزی شهری و توسعه زیرساخت</h4>
+                    <p>شناسایی بافت‌های فرسوده و مکان‌یابی بهینه سایت‌ها، به توسعه هوشمند و پایدار شهری و زیرساخت‌ها کمک می‌کند.</p>
+                </div>
+                <div class="results-item-card">
+                    <span class="icon">💡</span>
+                    <h4>اقتصاد دانش‌بنیان و نوآوری</h4>
+                    <p>استفاده از فناوری‌های پیشرفته سنجش از دور و GIS، به توسعه اقتصاد دانش‌بنیان و تربیت نیروی انسانی متخصص کمک می‌کند.</p>
+                </div>
+            </div>
+        </section>
+
+        <hr class="my-12 border-stone-300">
+
+        <section id="database-integration" class="mb-16">
+            <h2 class="text-3xl font-bold mb-6 text-center">🗄️ پایگاه داده یکپارچه سنجش از دور و GIS: ستون فقرات مدیریت هوشمند استان</h2>
+            <p class="section-intro max-w-4xl mx-auto">
+                برای به حداکثر رساندن پتانسیل پروژه‌های سنجش از دور و GIS و تبدیل آن‌ها به ابزاری کارآمد برای مدیریت استان کهگیلویه و بویراحمد، ایجاد یک پایگاه داده مرکزی و یکپارچه از اهمیت حیاتی برخوردار است. این بخش، جنبه‌های کلیدی این پایگاه داده یکپارچه را از منابع اولیه داده تا کاربردهای نهایی در مدیریت استان، به صورت بصری و فشرده نمایش می‌دهد. هر کارت، یک جزء مهم از این اکوسیستم داده‌ای را معرفی می‌کند و با نگه داشتن ماوس بر روی آن، می‌توانید جزئیات مربوط به آن جزء را مشاهده کنید. این رویکرد، ارتباطات و جریان داده‌ها را به شیوه‌ای مدرن و قابل فهم روشن می‌سازد.
+            </p>
+            <div class="results-grid">
+                <div class="results-item-card">
+                    <span class="icon">🔄</span>
+                    <h4>مزایای یکپارچه‌سازی داده‌ها</h4>
+                    <p>یکپارچه‌سازی اطلاعات متنوع، امکان تحلیل‌های چندرشته‌ای و هم‌افزایی بی‌نظیری را بین پروژه‌ها فراهم می‌کند. این رویکرد، از دوباره‌کاری جلوگیری کرده و به کشف الگوهای پنهان در داده‌ها کمک می‌کند، که منجر به برنامه‌ریزی جامع‌تر و واکنش‌های مؤثرتر می‌شود.</p>
+                </div>
+                <div class="results-item-card">
+                    <span class="icon">📦</span>
+                    <h4>داده‌های قابل استخراج از پروژه‌ها</h4>
+                    <p>از پروژه‌ها، مجموعه‌ای غنی و متنوع از داده‌های مکانی و توصیفی شامل نقشه‌های خطر، وضعیت منابع، شاخص‌های کمی، مدل‌های پیش‌بینی و گزارش‌های تحلیلی جامع قابل استخراج است. این اطلاعات پایه و اساس تحلیل‌های عمیق‌تر و تصمیم‌گیری‌های هوشمندانه را فراهم می‌آورند.</p>
+                </div>
+                <div class="results-item-card">
+                    <span class="icon">⚙️</span>
+                    <h4>کاربرد در مدیریت استان</h4>
+                    <p>این پایگاه داده، تصمیم‌گیری مبتنی بر شواهد را برای مدیران تسهیل می‌کند. به برنامه‌ریزی استراتژیک، تخصیص بهینه منابع, نظارت بر پیشرفت پروژه‌ها و واکنش سریع به بحران‌ها (مانند خشکسالی، سیلاب، فرونشست زمین) کمک می‌کند.</p>
+                </div>
+            </div>
+        </section>
+
+        <hr class="my-12 border-stone-300">
+
+        <section id="details" class="mb-16">
+            <h2 class="text-3xl font-bold mb-6 text-center">🔍 جزئیات پروژه</h2>
+            <p class="section-intro text-center max-w-3xl mx-auto">
+                در این بخش می‌توانید با انتخاب یک پروژه از لیست زیر، جزئیات کامل آن شامل داده‌های مورد استفاده، الگوریتم‌ها و مراحل اجرایی را مشاهده کنید. این اطلاعات به درک عمیق‌تر هر پروژه کمک می‌کند.
+            </p>
+            <div class="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-lg">
+                <label for="project-dropdown" class="block text-xl font-semibold mb-3 text-stone-700">انتخاب پروژه برای مشاهده جزئیات:</label>
+                <select id="project-dropdown" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-sky-500 focus:border-sky-500 text-base shadow-sm transition-all duration-200 ease-in-out"></select>
+                <div id="project-detail-content" class="mt-6 details-card min-h-[200px]">
+                    <h3>پایش نشت نفت در خطوط انتقال گچساران</h3>
+                    <div class="detail-item"><strong>📊 داده‌های مورد نیاز:</strong> <p>تصاویر ماهواره‌ای حرارتی (مانند Landsat 8/9 OLI/TIRS) و راداری SAR (مانند Sentinel-1) با باندهای مختلف برای شناسایی تغییرات در بازتابش و انتشار حرارتی سطح آب و زمین. <br><strong>جدیدترین:</strong> داده‌های ماهواره‌ای با رزولوشن بسیار بالا (VHR) مانند WorldView و Pleiades، و داده‌های راداری با قطبش‌های مختلف (Dual/Quad-Pol SAR) برای تفکیک دقیق‌تر عوارض.</p></div>
+                    <div class="detail-item"><strong>🧠 الگوریتم‌ها:</strong> <p><strong>الگوریتم‌های تشخیص تغییر:</strong> مانند Change Vector Analysis (CVA) و Image Differencing. <strong>طبقه‌بندی شی‌گرا (OBIA):</strong> برای گروه‌بندی پیکسل‌ها به اشیاء و تحلیل ویژگی‌های طیفی, بافتی و هندسی. <strong>ماشین بردار پشتیبان (SVM): یا برای طبقه‌بندی لکه‌های نفتی از سایر عوارض. <br><strong>جدیدترین:</strong> شبکه‌های عصبی کانولوشنی (CNN) و یادگیری عمیق (Deep Learning) برای تشخیص خودکار و دقیق‌تر نشت‌ها، و الگوریتم‌های مبتنی بر هوش مصنوعی برای تحلیل الگوهای نشت و پیش‌بینی.</strong></p></div>
+                    <div class="detail-item"><strong><strong>🛠️ مراحل اجرا:</strong> <p><strong>پیش‌پردازش تصاویر:</strong> شامل تصحیحات رادیومتریک، اتمسفری و هندسی. <strong>استخراج ویژگی‌ها:</strong> شامل شاخص‌های طیفی، بافتی (GLCM) و هندسی. <strong>اعمال الگوریتم‌های تشخیص:</strong> برای شناسایی مناطق مشکوک. <strong>اعتبارسنجی میدانی:</strong> جمع‌آوری داده‌های زمینی برای تأیید دقت تشخیص و کالیبراسیون مدل.</p></strong></div>
+                    <div class="detail-item"><strong><strong>💰 جزئیات هزینه:</strong> <p>این پروژه نیازمند سرمایه‌گذاری اولیه بالا برای خرید لایسنس نرم‌افزارهای تخصصی و دسترسی به تصاویر ماهواره‌ای با رزولوشن بالا است. هزینه‌های عملیاتی شامل پردازش ابری و نیروی انسانی متخصص می‌شود.</p></strong></div>
+                    <div class="detail-item"><strong><strong>⏱️ جزئیات زمان انجام:</strong> <p>مدت زمان اجرای این پروژه به دلیل نیاز به جمع‌آوری داده‌های زمانی متعدد و اعتبارسنجی میدانی، نسبتاً طولانی (حدود 6 تا 12 ماه) است.</p></strong></div>
+                    <div class="detail-item"><strong><strong>⚙️ جزئیات پیچیدگی روش:</strong> <p>روش‌های مورد استفاده شامل پردازش‌های پیچیده راداری و حرارتی، الگوریتم‌های یادگیری ماشین پیشرفته و نیاز به تخصص بالا در تفسیر داده‌های سنجش از دور است.</p></strong></div>
+                </div>
+            </div>
+        </section>
+
+        <hr class="my-12 border-stone-300">
+
+        <section id="conclusion" class="mb-16">
+            <h2 class="text-3xl font-bold mb-6 text-center">✨ نتیجه‌گیری: گامی بلند به سوی آینده‌ای هوشمند</h2>
+            <p class="section-intro max-w-4xl mx-auto">
+                این داشبورد جامع، نمایی کلی از پتانسیل بی‌کران سنجش از دور و سیستم اطلاعات جغرافیایی (GIS) در مواجهه با چالش‌ها و فرصت‌های توسعه در استان کهگیلویه و بویراحمد ارائه می‌دهد. از پایش دقیق منابع طبیعی گرفته تا مدیریت هوشمند مخاطرات و برنامه‌ریزی شهری، هر پروژه نشان‌دهنده تعهد به نوآوری و بهره‌گیری از فناوری‌های پیشرفته برای آینده‌ای پایدارتر است.
+                <br><br>
+                همانطور که در بخش‌های مختلف مشاهده شد، این پروژه‌ها نه تنها به اهداف توسعه ملی و اقتصاد مقاومتی خدمت می‌کنند، بلکه با ایجاد یک پایگاه داده یکپارچه، زیرساختی محکم برای تصمیم‌گیری‌های مبتنی بر شواهد و مدیریت هوشمند در سطح استان فراهم می‌آورند. این رویکرد جامع، به مدیران و برنامه‌ریزان این امکان را می‌دهد تا با دیدی دقیق‌تر و جامع‌تر، منابع را بهینه کنند، به بحران‌ها سریع‌تر واکنش نشان دهند و مسیر توسعه‌ای پایدار و دانش‌بنیان را هموار سازند. امید است که این داشبورد، الهام‌بخش گام‌های بلندتری در جهت بهره‌برداری حداکثری از ظرفیت‌های سنجش از دور و GIS برای شکوفایی استان کهگیلویه و بویراحمد و در نهایت، پیشرفت کشور عزیزمان باشد.
+            </p>
+        </section>
+
+    </div>
+
+    <script>
+        // Project data including importance, urgency, coordinates, cost, duration, complexity, and start/end dates
+        const projectData = [
+            { "پروژه": "پایش نشت نفت در خطوط انتقال گچساران", "حوزه": "نفت و گاز", "اهمیت": 9.8, "فوریت": 9.9, "lat": 30.36, "lon": 50.80, "هزینه": 8, "زمان_انجام": 7, "پیچیدگی_روش": 9, "start_date": "2024-01-15", "end_date": "2024-08-15" },
+            { "پروژه": "مدل‌سازی خشکسالی و تأثیر آن بر جنگل‌های بلوط", "حوزه": "محیط زیست", "اهمیت": 9.9, "فوریت": 9.9, "lat": 30.70, "lon": 51.50, "هزینه": 7, "زمان_انجام": 8, "پیچیدگی_روش": 8, "start_date": "2024-03-01", "end_date": "2024-11-30" },
+            { "پروژه": "مکان‌یابی نیروگاه‌های خورشیدی در مناطق کم‌شیب", "حوزه": "برق و انرژی", "اهمیت": 9.5, "فوریت": 9.2, "lat": 30.50, "lon": 51.00, "هزینه": 9, "زمان_انجام": 9, "پیچیدگی_روش": 7, "start_date": "2024-02-01", "end_date": "2024-11-01" },
+            { "پروژه": "پایش تغییرات پوشش جنگلی زاگرس با Sentinel", "حوزه": "محیط زیست", "اهمیت": 9.8, "فوریت": 9.7, "lat": 30.85, "lon": 51.60, "هزینه": 7, "زمان_انجام": 6, "پیچیدگی_روش": 8, "start_date": "2024-04-01", "end_date": "2024-10-30" },
+            { "پروژه": "تحلیل ریسک سیلاب در حوضه رودخانه بشار", "حوزه": "مخاطرات طبیعی", "اهمیت": 9.9, "فوریت": 10.0, "lat": 30.90, "lon": 51.50, "هزینه": 8, "زمان_انجام": 7, "پیچیدگی_روش": 9, "start_date": "2024-01-01", "end_date": "2024-08-01" },
+            { "پروژه": "تحلیل رشد شهری و جزایر گرمایی یاسوج", "حوزه": "شهرسازی", "اهمیت": 9.4, "فوریت": 9.3, "lat": 30.66, "lon": 51.58, "هزینه": 6, "زمان_انجام": 5, "پیچیدگی_روش": 6, "start_date": "2024-05-01", "end_date": "2024-10-01" },
+            { "پروژه": "پایش کیفیت آب سد کوثر با تصاویر ماهواره‌ای", "حوزه": "محیط زیست", "اهمیت": 9.6, "فوریت": 9.5, "lat": 30.00, "lon": 50.60, "هزینه": 7, "زمان_انجام": 6, "پیچیدگی_روش": 7, "start_date": "2024-03-10", "end_date": "2024-09-10" },
+            { "پروژه": "نقشه‌برداری گسل‌های فعال و پایش لرزه‌خیزی استان", "حوزه": "زمین‌شناسی", "اهمیت": 10.0, "فوریت": 10.0, "lat": 30.75, "lon": 51.45, "هزینه": 9, "زمان_انجام": 9, "پیچیدگی_روش": 10, "start_date": "2024-01-01", "end_date": "2025-01-31" },
+            { "پروژه": "پایش فرسایش خاک در اراضی کشاورزی شیب‌دار", "حوزه": "کشاورزی", "اهمیت": 9.5, "فوریت": 9.4, "lat": 30.70, "lon": 51.30, "هزینه": 6, "زمان_انجام": 6, "پیچیدگی_روش": 7, "start_date": "2024-06-01", "end_date": "2024-12-31" },
+            { "پروژه": "شناسایی اراضی مستعد کشت دیم در دشت‌های سردسیری", "حوزه": "کشاورزی", "اهمیت": 9.2, "فوریت": 9.0, "lat": 30.95, "lon": 51.80, "هزینه": 7, "زمان_انجام": 8, "پیچیدگی_روش": 7, "start_date": "2024-02-10", "end_date": "2024-10-10" },
+            { "پروژه": "پایش سلامت باغات سیب و گردو با تصاویر پهپادی", "حوزه": "کشاورزی", "اهمیت": 9.9, "فوریت": 9.8, "lat": 30.80, "lon": 51.55, "هزینه": 8, "زمان_انجام": 7, "پیچیدگی_روش": 9, "start_date": "2024-04-20", "end_date": "2024-11-20" },
+            { "پروژه": "تحلیل پایداری شیب‌ها و خطر زمین‌لغزش در جاده‌های کوهستانی", "حوزه": "مخاطرات طبیعی", "اهمیت": 10.0, "فوریت": 10.0, "lat": 30.70, "lon": 51.70, "هزینه": 9, "زمان_انجام": 10, "پیچیدگی_روش": 10, "start_date": "2024-01-05", "end_date": "2024-11-05" },
+            { "پروژه": "مدیریت منابع آب کشاورزی در دشت‌های بویراحمد", "حوزه": "کشاورزی", "اهمیت": 9.8, "فوریت": 9.7, "lat": 30.78, "lon": 51.65, "هزینه": 8, "زمان_انجام": 8, "پیچیدگی_روش": 9, "start_date": "2024-03-15", "end_date": "2024-11-15" },
+            { "پروژه": "پایش مناطق حفاظت‌شده دنا با سنجش از دور", "حوزه": "محیط زیست", "اهمیت": 9.7, "فوریت": 9.5, "lat": 30.95, "lon": 51.40, "هزینه": 7, "زمان_انجام": 7, "پیچیدگی_روش": 8, "start_date": "2024-02-20", "end_date": "2024-09-20" },
+            { "پروژه": "تحلیل بافت‌های فرسوده و توسعه شهری گچساران", "حوزه": "شهرسازی", "اهمیت": 9.3, "فوریت": 9.1, "lat": 30.36, "lon": 50.80, "هزینه": 7, "زمان_انجام": 7, "پیچیدگی_روش": 8, "start_date": "2024-04-05", "end_date": "2024-11-05" },
+            { "پروژه": "پایش مناطق مستعد آتش‌سوزی جنگل و مراتع", "حوزه": "مخاطرات طبیعی", "اهمیت": 9.7, "فوریت": 9.7, "lat": 30.80, "lon": 51.60, "هزینه": 8, "زمان_انجام": 7, "پیچیدگی_روش": 9, "start_date": "2024-04-15", "end_date": "2024-11-15" },
+            { "پروژه": "پایش تغییرات سطح آب و حجم سدهای استان", "حوزه": "محیط زیست", "اهمیت": 9.6, "فوریت": 9.5, "lat": 30.45, "lon": 50.95, "هزینه": 7, "زمان_انجام": 6, "پیچیدگی_روش": 8, "start_date": "2024-03-25", "end_date": "2024-09-25" },
+            { "پروژه": "نقشه‌برداری و مدیریت فرسایش خاک در اراضی کشاورزی شیب‌دار", "حوزه": "کشاورزی", "اهمیت": 9.5, "فوریت": 9.4, "lat": 30.75, "lon": 51.35, "هزینه": 7, "زمان_انجام": 8, "پیچیدگی_روش": 8, "start_date": "2024-05-10", "end_date": "2025-01-10" },
+            { "پروژه": "تحلیل و پایش توسعه کالبدی شهرها و روستاهای استان", "حوزه": "شهرسازی", "اهمیت": 9.3, "فوریت": 9.2, "lat": 30.68, "lon": 51.58, "هزینه": 7, "زمان_انجام": 7, "پیچیدگی_روش": 8, "start_date": "2024-06-01", "end_date": "2025-01-01" },
+            { "پروژه": "ارزیابی پتانسیل انرژی‌های تجدیدپذیر (باد و خورشید) در مناطق کوهستانی", "حوزه": "برق و انرژی", "اهمیت": 9.0, "فوریت": 8.9, "lat": 30.80, "lon": 51.80, "هزینه": 8, "زمان_انجام": 9, "پیچیدگی_روش": 8, "start_date": "2024-07-01", "end_date": "2025-04-01" },
+            { "پروژه": "پایش و پیش‌بینی خشکسالی کشاورزی با استفاده از شاخص‌های ترکیبی", "حوزه": "کشاورزی", "اهمیت": 9.9, "فوریت": 10.0, "lat": 30.90, "lon": 51.70, "هزینه": 8, "زمان_انجام": 9, "پیچیدگی_روش": 9, "start_date": "2024-02-01", "end_date": "2024-11-01" },
+            { "پروژه": "نقشه‌برداری دقیق پوشش گیاهی و کاربری اراضی کوهستانی", "حوزه": "محیط زیست", "اهمیت": 9.8, "فوریت": 9.6, "lat": 30.95, "lon": 51.45, "هزینه": 7, "زمان_انجام": 8, "پیچیدگی_روش": 9, "start_date": "2024-04-01", "end_date": "2024-12-01" },
+            { "پروژه": "تحلیل تغییرات خط ساحلی رودخانه‌ها و مسیل‌ها", "حوزه": "مخاطرات طبیعی", "اهمیت": 9.7, "فوریت": 9.9, "lat": 30.60, "lon": 51.20, "هزینه": 8, "زمان_انجام": 7, "پیچیدگی_روش": 8, "start_date": "2024-05-01", "end_date": "2024-12-01" },
+            { "پروژه": "شناسایی و پایش معادن و مناطق تخریب شده", "حوزه": "زمین‌شناسی", "اهمیت": 9.5, "فوریت": 9.3, "lat": 30.50, "lon": 51.10, "هزینه": 9, "زمان_انجام": 9, "پیچیدگی_روش": 9, "start_date": "2024-03-01", "end_date": "2024-12-01" },
+            { "پروژه": "مدل‌سازی پتانسیل انرژی زمین‌گرمایی با داده‌های حرارتی", "حوزه": "برق و انرژی", "اهمیت": 9.2, "فوریت": 8.9, "lat": 30.85, "lon": 51.90, "هزینه": 8, "زمان_انجام": 10, "پیچیدگی_روش": 10, "start_date": "2024-06-15", "end_date": "2025-04-15" },
+            { "پروژه": "ارزیابی ظرفیت برد اکولوژیک مناطق گردشگری", "حوزه": "محیط زیست", "اهمیت": 9.1, "فوریت": 8.8, "lat": 30.70, "lon": 51.50, "هزینه": 7, "زمان_انجام": 8, "پیچیدگی_روش": 8, "start_date": "2024-07-20", "end_date": "2025-03-20" }
+        ];
+
+        // Detailed project data for the "Project Details" section
+        const projectDetailsData = {
+            "پایش نشت نفت در خطوط انتقال گچساران": {
+                "data_used": "تصاویر ماهواره‌ای حرارتی (مانند Landsat 8/9 OLI/TIRS) و راداری SAR (مانند Sentinel-1) با باندهای مختلف برای شناسایی تغییرات در بازتابش و انتشار حرارتی سطح آب و زمین. <br><strong>جدیدترین:</strong> داده‌های ماهواره‌ای با رزولوشن بسیار بالا (VHR) مانند WorldView و Pleiades، و داده‌های راداری با قطبش‌های مختلف (Dual/Quad-Pol SAR) برای تفکیک دقیق‌تر عوارض.",
+                "algorithms": "<strong>الگوریتم‌های تشخیص تغییر:</strong> مانند Change Vector Analysis (CVA) و Image Differencing. <strong>طبقه‌بندی شی‌گرا (OBIA):</strong> برای گروه‌بندی پیکسل‌ها به اشیاء و تحلیل ویژگی‌های طیفی، بافتی و هندسی. <strong>ماشین بردار پشتیبان (SVM):</strong> برای طبقه‌بندی لکه‌های نفتی از سایر عوارض. <br><strong>جدیدترین:</strong> شبکه‌های عصبی کانولوشنی (CNN) و یادگیری عمیق (Deep Learning) برای تشخیص خودکار و دقیق‌تر نشت‌ها، و الگوریتم‌های مبتنی بر هوش مصنوعی برای تحلیل الگوهای نشت و پیش‌بینی.",
+                "execution_steps": "<strong>پیش‌پردازش تصاویر:</strong> شامل تصحیحات رادیومتریک، اتمسفری و هندسی. <strong>استخراج ویژگی‌ها:</strong> شامل شاخص‌های طیفی، بافتی (GLCM) و هندسی. <strong>اعمال الگوریتم‌های تشخیص:</strong> برای شناسایی مناطق مشکوک. <strong>اعتبارسنجی میدانی:</strong> جمع‌آوری داده‌های زمینی برای تأیید دقت تشخیص و کالیبراسیون مدل.",
+                "cost_details": "این پروژه نیازمند سرمایه‌گذاری اولیه بالا برای خرید لایسنس نرم‌افزارهای تخصصی و دسترسی به تصاویر ماهواره‌ای با رزولوشن بالا است. هزینه‌های عملیاتی شامل پردازش ابری و نیروی انسانی متخصص می‌شود.",
+                "time_details": "مدت زمان اجرای این پروژه به دلیل نیاز به جمع‌آوری داده‌های زمانی متعدد و اعتبارسنجی میدانی، نسبتاً طولانی (حدود 6 تا 12 ماه) است.",
+                "method_complexity_details": "روش‌های مورد استفاده شامل پردازش‌های پیچیده راداری و حرارتی، الگوریتم‌های یادگیری ماشین پیشرفته و نیاز به تخصص بالا در تفسیر داده‌های سنجش از دور است.",
+                "sub_activities": [
+                    { "label": "جمع‌آوری داده‌های SAR و حرارتی", "description": "تهیه تصاویر Sentinel-1 و Landsat.", "value_contribution": 3 },
+                    { "label": "پیش‌پردازش و همسان‌سازی", "description": "تصحیحات رادیومتریک، اتمسفری و هندسی.", "value_contribution": 2 },
+                    { "label": "اعمال الگوریتم‌های تشخیص تغییر (CNN)", "description": "استفاده از شبکه‌های عصبی برای شناسایی نشت.", "value_contribution": 3 },
+                    { "label": "اعتبارسنجی و گزارش‌دهی", "description": "تأیید میدانی و تهیه نقشه‌های نشت.", "value_contribution": 1.8 }
+                ]
+            },
+            "مدل‌سازی خشکسالی و تأثیر آن بر جنگل‌های بلوط": {
+                "data_used": "شاخص‌های پوشش گیاهی (مانند NDVI, EVI از Sentinel-2, MODIS)، داده‌های بارش (TRMM/GPM)، رطوبت خاک (SMAP/SMOS) و داده‌های اقلیمی. <br><strong>جدیدترین:</strong> داده‌های رطوبت خاک ماهواره‌ای (مانند SMAP/SMOS)، و داده‌های تبخیر و تعرق (ET) از مدل‌های بیلان انرژی.",
+                "algorithms": "تحلیل روند (Mann-Kendall)، ANN، Random Forest. <br><strong>جدیدترین:</strong> مدل‌های یادگیری عمیق (مانند LSTM برای سری‌های زمانی) برای پیش‌بینی خشکسالی و تحلیل تأثیر بر سلامت جنگل.",
+                "execution_steps": "ترکیب داده‌ها، مدلسازی سری زمانی، تهیه نقشه خطر خشکسالی جنگل.",
+                "cost_details": "هزینه متوسط، عمدتاً مربوط به جمع‌آوری و پردازش داده‌های متنوع و نیاز به متخصصان تحلیل داده.",
+                "time_details": "زمان انجام متوسط تا طولانی (6 تا 18 ماه) بسته به دوره تحلیل و دسترسی به داده‌های تاریخی.",
+                "method_complexity_details": "پیچیدگی بالا به دلیل نیاز به ترکیب و تحلیل داده‌های مختلف و استفاده از مدل‌های پیشرفته یادگیری ماشین.",
+                "sub_activities": [
+                    { "label": "تهیه و پیش‌پردازش داده‌های اقلیمی و ماهواره‌ای", "description": "جمع‌آوری و آماده‌سازی داده‌های NDVI، بارش و دما.", "value_contribution": 3 },
+                    { "label": "محاسبه شاخص‌های خشکسالی و تحلیل روند", "description": "استخراج SPI, SPEI و تحلیل تغییرات در طول زمان.", "value_contribution": 3.5 },
+                    { "label": "مدل‌سازی تأثیر بر جنگل‌های بلوط (LSTM)", "description": "توسعه مدل‌های پیش‌بینی سلامت جنگل بر اساس خشکسالی.", "value_contribution": 3.4 }
+                ]
+            },
+            "مکان‌یابی نیروگاه‌های خورشیدی در مناطق کم‌شیب": {
+                "data_used": "نقشه تابش خورشیدی (Global Horizontal Irradiance - GHI)، مدل ارتفاع رقومی (DEM) برای شیب و جهت زمین (از LiDAR)، نقشه‌های کاربری اراضی، فاصله از خطوط انتقال برق و جاده‌ها، و محدودیت‌های محیط زیستی. <br><strong>جدیدترین:</strong> داده‌های LiDAR برای DEM با دقت بالا و مدل‌سازی سه‌بعدی سایه‌ها، و داده‌های مربوط به پایداری زمین‌شناختی و لرزه‌خیزی.",
+                "algorithms": "<strong>منطق فازی:</strong> برای ترکیب معیارهای با عدم قطعیت. <strong>تحلیل سلسله مراتبی (AHP):</strong> برای وزن‌دهی به معیارهای مختلف بر اساس اهمیت. <strong>تحلیل مکانی GIS وزنی:</strong> برای تلفیق لایه‌های اطلاعاتی با وزن‌های تعیین شده. <br><strong>جدیدترین:</strong> الگوریتم‌های بهینه‌سازی چندهدفه (Multi-Objective Optimization) برای یافتن بهترین مکان با در نظر گرفتن همزمان چندین معیار (مانند حداکثر تابش، حداقل هزینه، حداقل اثر محیط زیستی)، و یادگیری ماشین برای پیش‌بینی عملکرد پنل‌ها.",
+                "execution_steps": "<strong>وزن‌دهی شاخص‌ها:</strong> تعیین اهمیت هر معیار (مثلاً تابش خورشیدی، شیب، کاربری). <strong>ترکیب لایه‌ها:</strong> ادغام لایه‌های اطلاعاتی در محیط GIS. <strong>تهیه نقشه نهایی اولویت:</strong> شناسایی مناطق بهینه با پتانسیل بالا برای نصب نیروگاه‌های خورشیدی.",
+                "cost_details": "هزینه بالا به دلیل نیاز به داده‌های دقیق و تحلیل‌های GIS پیچیده.",
+                "time_details": "زمان انجام طولانی (9 تا 18 ماه) به دلیل فرآیند جمع‌آوری داده، تحلیل و اعتبارسنجی.",
+                "method_complexity_details": "پیچیدگی متوسط تا بالا به دلیل استفاده از مدل‌های تصمیم‌گیری چندمعیاره و تحلیل‌های فضایی.",
+                "sub_activities": [
+                    { "label": "جمع‌آوری و پردازش داده‌های مکانی (LiDAR, GHI)", "description": "تهیه DEM با دقت بالا و نقشه‌های تابش خورشیدی.", "value_contribution": 3 },
+                    { "label": "تحلیل چندمعیاره (AHP) در GIS", "description": "وزن‌دهی و تلفیق لایه‌های معیارها.", "value_contribution": 3.5 },
+                    { "label": "بهینه‌سازی و تهیه نقشه نهایی", "description": "شناسایی مناطق بهینه و ارزیابی اقتصادی.", "value_contribution": 3 }
+                ]
+            },
+            "پایش تغییرات پوشش جنگلی زاگرس با Sentinel": {
+                "data_used": "تصاویر چندطیفی Sentinel-2 MSI (MultiSpectral Instrument)، داده‌های LiDAR (برای ساختار جنگل)، داده‌های زمینی پوشش گیاهی. <br><strong>جدیدترین:</strong> داده‌های ماهواره‌ای راداری SAR (Sentinel-1) برای پایش تغییرات ساختاری و زیست‌توده جنگل در شرایط ابری، و داده‌های پهپادی با رزولوشن بالا برای پایش دقیق‌تر سلامت درختان.",
+                "algorithms": "<strong>تشخیص تغییرات:</strong> (Post-Classification Comparison, Change Vector Analysis)، طبقه‌بندی پوشش گیاهی (Random Forest, SVM). <br><strong>جدیدترین:</strong> شبکه‌های عصبی کانولوشنی (CNN) برای تشخیص خودکار مناطق جنگل‌زدایی و تخریب، و مدل‌های یادگیری عمیق برای پایش تنوع زیستی و سلامت اکوسیستم جنگلی.",
+                "execution_steps": "<strong>پیش‌پردازش تصاویر:</strong> تصحیحات اتمسفری و رادیومتریک. <strong>استخراج شاخص‌ها:</strong> محاسبه شاخص‌های پوشش گیاهی و ساختاری جنگل. <strong>تشخیص نواحی تغییر یافته:</strong> اعمال الگوریتم‌های تشخیص تغییر. <strong>اعتبارسنجی مکانی-زمانی:</strong> مقایسه نتایج با داده‌های زمینی و تحلیل تغییرات در طول زمان.",
+                "cost_details": "هزینه متوسط، عمدتاً برای پردازش داده و نیروی انسانی.",
+                "time_details": "زمان انجام متوسط (3 تا 9 ماه) بسته به دوره پایش.",
+                "method_complexity_details": "پیچیدگی متوسط به دلیل نیاز به تحلیل طیفی و الگوریتم‌های طبقه‌بندی.",
+                "sub_activities": [
+                    { "label": "جمع‌آوری و پیش‌پردازش تصاویر Sentinel", "description": "تهیه سری‌های زمانی تصاویر Sentinel-2.", "value_contribution": 3 },
+                    { "label": "تشخیص تغییرات پوشش جنگلی (CNN)", "description": "استفاده از یادگیری عمیق برای شناسایی مناطق تخریب شده.", "value_contribution": 4 },
+                    { "label": "تحلیل روند و گزارش‌دهی", "description": "بررسی الگوهای جنگل‌زدایی و تهیه گزارش‌های مدیریتی.", "value_contribution": 2.8 }
+                ]
+            },
+            "تحلیل ریسک سیلاب در حوضه رودخانه بشار": {
+                "data_used": "مدل ارتفاع رقومی (DEM) با دقت بالا (از LiDAR)، داده‌های هیدرولوژیکی (مانند داده‌های جریان رودخانه، مقادیر اوج دبی، منحنی‌های دبی-اشغال) و نقشه‌های کاربری اراضی و پوشش گیاهی. <br><strong>جدیدترین:</strong> DEM تولید شده از داده‌های LiDAR برای دقت میلی‌متری، و داده‌های بارش راداری (مانند NEXRAD) برای ورودی‌های بلادرنگ مدل.",
+                "algorithms": "<strong>مدل‌سازی هیدرولیکی HEC-RAS:</strong> برای شبیه‌سازی جریان آب در رودخانه‌ها و دشت‌های سیلابی در سناریوهای مختلف بارش. <strong>تحلیل مکانی در GIS:</strong> برای تعیین مناطق مستعد سیل، عمق آب و سرعت جریان. <br><strong>جدیدترین:</strong> مدل‌های هیدرودینامیکی دوبعدی (2D Hydrodynamic Models) برای شبیه‌سازی دقیق‌تر جریان در مناطق شهری، و الگوریتم‌های یادگیری ماشین برای نقشه‌برداری سریع محدوده سیلاب از تصاویر ماهواره‌ای پس از وقوع.",
+                "execution_steps": "<strong>تهیه مدل رودخانه:</strong> شامل تعریف مقاطع عرضی و ویژگی‌های هندسی رودخانه. <strong>شبیه‌سازی جریان:</strong> اجرای مدل HEC-RAS برای سناریوهای مختلف سیلاب. <strong>تهیه نقشه مناطق پرریسک سیلاب:</strong> بر اساس عمق و سرعت جریان، و تحلیل تأثیر آن بر کاربری اراضی.",
+                "cost_details": "هزینه متوسط تا بالا، نیازمند نرم‌افزارهای تخصصی و داده‌های دقیق DEM.",
+                "time_details": "زمان انجام متوسط تا طولانی (6 تا 12 ماه) بسته به پیچیدگی سیستم رودخانه‌ای.",
+                "method_complexity_details": "پیچیدگی بالا به دلیل نیاز به مدل‌سازی هیدرولیکی و تحلیل‌های فضایی پیچیده.",
+                "sub_activities": [
+                    { "label": "تولید DEM دقیق و داده‌های هیدرولوژیکی", "description": "استفاده از LiDAR و داده‌های بارش راداری.", "value_contribution": 4 },
+                    { "label": "مدل‌سازی هیدرولیکی (HEC-RAS 2D)", "description": "شبیه‌سازی جریان سیلاب در حوضه رودخانه بشار.", "value_contribution": 3.5 },
+                    { "label": "تهیه نقشه خطر سیلاب و سناریوهای پیش‌بینی", "description": "پهنه‌بندی مناطق پرریسک و تحلیل آسیب‌پذیری.", "value_contribution": 2.4 }
+                ]
+            },
+            "تحلیل رشد شهری و جزایر گرمایی یاسوج": {
+                "data_used": "تصاویر حرارتی Landsat (باندهای حرارتی) برای استخراج دمای سطح زمین (LST)، داده‌های جمعیتی، نقشه‌های کاربری اراضی و پوشش زمین (مانند NDVI برای پوشش گیاهی). <br><strong>جدیدترین:</strong> داده‌های حرارتی از سنجنده‌های با رزولوشن بالاتر (مانند ECOSTRESS در ISS)، و داده‌های سه‌بعدی شهری (مانند مدل‌های سه‌بعدی ساختمان‌ها از LiDAR) برای تحلیل اثرات هندسه شهری بر دما.",
+                "algorithms": "<strong>محاسبه LST:</strong> با استفاده از الگوریتم‌های تک باندی یا دو باندی. <strong>تحلیل همبستگی:</strong> بین LST و شاخص‌های شهری (تراکم ساختمانی، فضای سبز). <strong>طبقه‌بندی نواحی داغ:</strong> شناسایی و نقشه‌برداری مناطق با دمای بالا در محیط شهری. <br><strong>جدیدترین:</strong> مدل‌های یادگیری ماشین (مانند Random Forest Regression) برای پیش‌بینی LST بر اساس ویژگی‌های شهری، و تحلیل‌های شبکه فضایی برای شناسایی مسیرهای جریان گرما در شهر.",
+                "execution_steps": "<strong>پیش‌پردازش تصاویر:</strong> تصحیحات رادیومتریک، اتمسفری و هندسی. <strong>استخراج LST:</strong> محاسبه دمای سطح زمین. <strong>تطابق با کاربری:</strong> تحلیل ارتباط LST با انواع کاربری اراضی. <strong>شناسایی نقاط بحرانی گرمایی:</strong> تعیین مناطق نیازمند مداخله برای کاهش اثر جزیره گرمایی.",
+                "cost_details": "هزینه متوسط، عمدتاً برای داده‌های ماهواره‌ای و پردازش.",
+                "time_details": "زمان انجام کوتاه تا متوسط (3 تا 6 ماه).",
+                "method_complexity_details": "پیچیدگی متوسط، شامل پردازش تصاویر حرارتی و تحلیل‌های آماری.",
+                "sub_activities": [
+                    { "label": "پایش رشد شهری با تصاویر VHR", "description": "تحلیل گسترش فیزیکی شهر یاسوج.", "value_contribution": 3 },
+                    { "label": "استخراج LST و نقشه‌برداری جزایر گرمایی", "description": "شناسایی مناطق با دمای بالای شهری.", "value_contribution": 3.4 },
+                    { "label": "تحلیل همبستگی و پیشنهاد راهکار", "description": "بررسی ارتباط رشد شهری با جزایر گرمایی و ارائه راهکار.", "value_contribution": 3 }
+                ]
+            },
+            "پایش کیفیت آب سد کوثر با تصاویر ماهواره‌ای": {
+                "data_used": "تصاویر چندطیفی Sentinel-2 (باندهای آبی-سبز-قرمز)، داده‌های هایپراسپکترال (اگر موجود باشد)، داده‌های آزمایشگاهی کیفیت آب. <br><strong>جدیدترین:</strong> الگوریتم‌های یادگیری عمیق برای تخمین غلظت آلاینده‌ها و مدل‌های انتشار آلودگی.",
+                "algorithms": "<strong>شاخص‌های کیفیت آب:</strong> (مانند Chl-a, TSS)، رگرسیون، یادگیری ماشین. <br><strong>جدیدترین:</strong> الگوریتم‌های یادگیری عمیق برای تخمین غلظت آلاینده‌ها و مدل‌های انتشار آلودگی.",
+                "execution_steps": "<strong>پیش‌پردازش تصاویر:</strong> تصحیحات اتمسفری و رادیومتریک. <strong>استخراج شاخص‌ها:</strong> محاسبه شاخص‌های کیفیت آب از تصاویر. <strong>اعتبارسنجی:</strong> مقایسه نتایج با داده‌های آزمایشگاهی. <strong>نقشه‌برداری:</strong> تهیه نقشه‌های پهنه‌بندی کیفیت آب سد.",
+                "cost_details": "هزینه متوسط برای داده‌های ماهواره‌ای و آزمایشگاهی.",
+                "time_details": "6 تا 12 ماه.",
+                "method_complexity_details": "پیچیدگی متوسط تا بالا، نیاز به کالیبراسیون دقیق.",
+                "sub_activities": [
+                    { "label": "جمع‌آوری تصاویر Sentinel-2 و داده‌های آزمایشگاهی", "description": "تهیه داده‌های لازم برای تحلیل کیفیت آب.", "value_contribution": 3 },
+                    { "label": "استخراج شاخص‌های کیفیت آب (Chl-a, TSS)", "description": "محاسبه غلظت کلروفیل-a و مواد معلق.", "value_contribution": 3.6 },
+                    { "label": "مدل‌سازی و نقشه‌برداری کیفیت آب", "description": "تولید نقشه‌های پهنه‌بندی کیفیت آب سد.", "value_contribution": 3 }
+                ]
+            },
+            "نقشه‌برداری گسل‌های فعال و پایش لرزه‌خیزی استان": {
+                "data_used": "تصاویر راداری SAR (Sentinel-1, TerraSAR-X) در دوره‌های زمانی مختلف، داده‌های GPS از ایستگاه‌های دائمی، داده‌های لرزه‌نگاری. <br><strong>جدیدترین:</strong> ادغام InSAR با مدل‌های زمین‌شناختی و لرزه‌خیزی برای پیش‌بینی دقیق‌تر رفتار گسل‌ها.",
+                "algorithms": "<strong>تداخل‌سنجی راداری (InSAR):</strong> برای تولید اینترفروگرام‌ها (Interferograms) که نشان‌دهنده تغییرات فاز رادار ناشی از جابجایی زمین هستند. <strong>تحلیل سری زمانی InSAR:</strong> مانند StaMPS (Stanford Method for Persistent Scatterers) یا SBAS (Small BAseline Subset) برای استخراج نرخ جابجایی زمین در طول زمان و شناسایی گسل‌های فعال. <br><strong>جدیدترین:</strong> روش‌های InSAR پیشرفته مانند LiCSBAS برای تحلیل جابجایی‌های پیچیده، و ادغام داده‌های InSAR با مدل‌های زمین‌شناختی و لرزه‌خیزی برای پیش‌بینی دقیق‌تر رفتار گسل‌ها.",
+                "execution_steps": "<strong>انتخاب و دانلود تصاویر SAR:</strong> جمع‌آوری تصاویر با هندسه مناسب. <strong>پیش‌پردازش:</strong> شامل فیلتر کردن نویز، تصحیحات مداری و ثبت دقیق تصاویر. <strong>تولید اینترفروگرام‌ها:</strong> محاسبه تفاوت فاز بین جفت تصاویر. <strong>رفع ابهام فاز (Phase Unwrapping):</strong> تبدیل تفاوت فاز به جابجایی واقعی. <strong>تحلیل سری زمانی:</strong> استخراج نرخ جابجایی و تفسیر نتایج برای نقشه‌برداری گسل‌های فعال و مناطق تحت تأثیر.",
+                "cost_details": "هزینه بسیار بالا، نیازمند پردازش‌های سنگین و تخصصی InSAR.",
+                "time_details": "12 تا 24 ماه.",
+                "method_complexity_details": "پیچیدگی بسیار بالا، شامل پردازش‌های راداری پیچیده و تحلیل‌های ژئودتیک.",
+                "sub_activities": [
+                    { "label": "جمع‌آوری و پردازش داده‌های InSAR و GPS", "description": "تهیه سری‌های زمانی تصاویر SAR و داده‌های GPS.", "value_contribution": 4 },
+                    { "label": "تحلیل سری زمانی InSAR و استخراج جابجایی", "description": "محاسبه نرخ جابجایی زمین و شناسایی گسل‌ها.", "value_contribution": 3.5 },
+                    { "label": "مدل‌سازی لرزه‌خیزی و تهیه نقشه خطر", "description": "پیش‌بینی رفتار گسل‌ها و ارزیابی ریسک لرزه‌ای.", "value_contribution": 2.5 }
+                ]
+            },
+            "پایش فرسایش خاک در اراضی کشاورزی شیب‌دار": {
+                "data_used": "مدل ارتفاع رقومی (DEM) (از پهپاد/LiDAR)، تصاویر Sentinel-2، داده‌های خاک (نوع، بافت)، داده‌های بارش. <br><strong>جدیدترین:</strong> مدل‌های یادگیری ماشین برای پیش‌بینی مناطق مستعد فرسایش و ارزیابی اثرات اقدامات حفاظتی.",
+                "algorithms": "<strong>مدل‌های فرسایش خاک:</strong> (مانند USLE/RUSLE)، تحلیل تغییرات پوشش گیاهی، طبقه‌بندی مناطق فرسایش‌پذیر. <br><strong>جدیدترین:</strong> مدل‌های یادگیری ماشین برای پیش‌بینی مناطق مستعد فرسایش و ارزیابی اثرات اقدامات حفاظتی.",
+                "execution_steps": "<strong>تولید DEM:</strong> تهیه مدل ارتفاعی دقیق از پهپاد یا LiDAR. <strong>نقشه‌برداری کاربری اراضی:</strong> شناسایی انواع پوشش زمین. <strong>مدل‌سازی فرسایش:</strong> اجرای مدل‌های فرسایش خاک. <strong>تهیه نقشه خطر فرسایش:</strong> پهنه‌بندی مناطق با شدت فرسایش متفاوت. <strong>پایش تغییرات:</strong> بررسی روند فرسایش در طول زمان.",
+                "cost_details": "هزینه متوسط برای داده‌های DEM و تحلیل.",
+                "time_details": "5 تا 10 ماه.",
+                "method_complexity_details": "پیچیدگی متوسط تا بالا، نیاز به داده‌های دقیق خاک.",
+                "sub_activities": [
+                    { "label": "تهیه DEM دقیق و نقشه‌های پوشش گیاهی", "description": "استفاده از LiDAR/پهپاد و تصاویر ماهواره‌ای.", "value_contribution": 3 },
+                    { "label": "مدل‌سازی فرسایش خاک (RUSLE) و تحلیل مکانی", "description": "اجرای مدل‌های فرسایش و شناسایی مناطق پرخطر.", "value_contribution": 3.5 },
+                    { "label": "پایش تغییرات و ارائه راهکارهای مدیریتی", "description": "بررسی روند فرسایش و پیشنهاد روش‌های کنترل.", "value_contribution": 3 }
+                ]
+            },
+            "شناسایی اراضی مستعد کشت دیم در دشت‌های سردسیری": {
+                "data_used": "نقشه‌های اقلیمی (بارش، دما)، نقشه‌های خاک (نوع، عمق)، DEM (شیب، جهت)، کاربری اراضی فعلی، تصاویر ماهواره‌ای (Sentinel-2). <br><strong>جدیدترین:</strong> الگوریتم‌های یادگیری ماشین برای شناسایی الگوهای مناسب کشت دیم بر اساس ویژگی‌های مکانی.",
+                "algorithms": "<strong>تحلیل چندمعیاره:</strong> (AHP, MCDA)، منطق فازی، طبقه‌بندی اراضی. <br><strong>جدیدترین:</strong> الگوریتم‌های یادگیری ماشین برای شناسایی الگوهای مناسب کشت دیم بر اساس ویژگی‌های مکانی.",
+                "execution_steps": "<strong>جمع‌آوری و وزن‌دهی معیارها:</strong> تعیین اهمیت عوامل مؤثر. <strong>تلفیق لایه‌ها در GIS:</strong> ادغام لایه‌های اطلاعاتی در محیط GIS. <strong>تهیه نقشه نهایی:</strong> شناسایی مناطق بهینه برای کشت دیم.",
+                "cost_details": "هزینه متوسط برای جمع‌آوری داده‌های متنوع.",
+                "time_details": "8 تا 14 ماه.",
+                "method_complexity_details": "پیچیدگی متوسط، شامل تحلیل‌های فضایی چندمعیاره.",
+                "sub_activities": [
+                    { "label": "جمع‌آوری داده‌های اقلیمی، خاک و توپوگرافی", "description": "تهیه نقشه‌های بارش، دما، نوع خاک و DEM.", "value_contribution": 3 },
+                    { "label": "تحلیل چندمعیاره و منطق فازی", "description": "ترکیب لایه‌ها و وزن‌دهی معیارها.", "value_contribution": 3.2 },
+                    { "label": "نقشه‌برداری مناطق مستعد و گزارش‌دهی", "description": "شناسایی اراضی مناسب برای کشت دیم.", "value_contribution": 3 }
+                ]
+            },
+            "پایش سلامت باغات سیب و گردو با تصاویر پهپادی": {
+                "data_used": "تصاویر چندطیفی و حرارتی از پهپاد، داده‌های RGB با رزولوشن بسیار بالا، داده‌های زمینی سلامت درختان (برای اعتبارسنجی). <br><strong>جدیدترین:</strong> شبکه‌های عصبی کانولوشنی (CNN) برای تشخیص خودکار بیماری‌ها، آفات و تنش‌های آبی از تصاویر پهپادی، و مدل‌های سه‌بعدی درختان برای تحلیل دقیق‌تر.",
+                "algorithms": "<strong>شاخص‌های پوشش گیازی:</strong> اختصاصی باغات، طبقه‌بندی شی‌گرا (OBIA)، یادگیری ماشین (SVM, RF). <br><strong>جدیدترین:</strong> شبکه‌های عصبی کانولوشنی (CNN) برای تشخیص خودکار بیماری‌ها، آفات و تنش‌های آبی از تصاویر پهپادی، و مدل‌های سه‌بعدی درختان برای تحلیل دقیق‌تر.",
+                "execution_steps": "<strong>پرواز پهپاد و جمع‌آوری داده:</strong> برنامه‌ریزی و اجرای پرواز. <strong>پیش‌پردازش تصاویر:</strong> شامل موزائیک‌سازی و تصحیحات. <strong>استخراج شاخص‌ها:</strong> محاسبه شاخص‌های سلامت باغ. <strong>تشخیص مناطق آسیب‌دیده:</strong> شناسایی درختان بیمار یا تحت تنش. <strong>تهیه نقشه سلامت باغ:</strong> برای مدیریت دقیق کشاورزی.",
+                "cost_details": "هزینه متوسط تا بالا برای تجهیزات پهپادی و پردازش داده.",
+                "time_details": "3 تا 6 ماه (برای هر دوره پایش).",
+                "method_complexity_details": "پیچیدگی بالا، شامل پردازش تصاویر پهپادی و الگوریتم‌های AI.",
+                "sub_activities": [
+                    { "label": "جمع‌آوری داده‌های پهپادی (چندطیفی و حرارتی)", "description": "پرواز و جمع‌آوری تصاویر با رزولوشن بالا.", "value_contribution": 4 },
+                    { "label": "پیش‌پردازش و استخراج شاخص‌های سلامت", "description": "محاسبه شاخص‌های گیاهی و حرارتی.", "value_contribution": 3.5 },
+                    { "label": "تشخیص بیماری و تنش (CNN) و نقشه‌برداری", "description": "استفاده از یادگیری عمیق برای شناسایی مشکلات.", "value_contribution": 2.4 }
+                ]
+            },
+            "تحلیل پایداری شیب‌ها و خطر زمین‌لغزش در جاده‌های کوهستانی": {
+                "data_used": "مدل ارتفاع رقومی (DEM) با دقت بسیار بالا (از LiDAR)، نقشه‌های زمین‌شناسی (نوع سنگ، گسل‌ها، ساختار)، نقشه‌های هیدرولوژیکی (نفوذ آب، جریان سطحی)، کاربری اراضی، داده‌های بارش. <br><strong>جدیدترین:</strong> تحلیل سری زمانی InSAR برای پایش جابجایی‌های میلی‌متری شیب‌ها، و مدل‌های یادگیری ماشین برای پیش‌بینی مناطق مستعد لغزش بر اساس عوامل محیطی و زمین‌شناختی.",
+                "algorithms": "<strong>مدل‌های پایداری شیب:</strong> (مانند FOS - Factor of Safety)، تحلیل چندمعیاره GIS، الگوریتم‌های تشخیص تغییر (برای پایش جابجایی). <br><strong>جدیدترین:</strong> تحلیل سری زمانی InSAR برای پایش جابجایی‌های میلی‌متری شیب‌ها، و مدل‌های یادگیری ماشین برای پیش‌بینی مناطق مستعد لغزش و ارزیابی ریسک.",
+                "execution_steps": "<strong>تولید DEM دقیق:</strong> از داده‌های LiDAR. <strong>نقشه‌برداری عوامل مؤثر:</strong> شناسایی و رقومی‌سازی عوامل زمین‌لغزش. <strong>مدل‌سازی پایداری:</strong> اجرای مدل‌های پایداری شیب. <strong>تهیه نقشه خطر زمین‌لغزش:</strong> پهنه‌بندی مناطق پرخطر. <strong>پایش تغییرات:</strong> استفاده از InSAR برای رصد جابجایی‌ها در طول زمان.",
+                "cost_details": "هزینه بسیار بالا برای داده‌های LiDAR و InSAR و تحلیل‌های تخصصی.",
+                "time_details": "12 تا 24 ماه.",
+                "method_complexity_details": "پیچیدگی بسیار بالا، شامل پردازش‌های راداری پیچیده و تحلیل‌های ژئودتیک.",
+                "sub_activities": [
+                    { "label": "جمع‌آوری داده‌های LiDAR و InSAR", "description": "تهیه DEM دقیق و سری‌های زمانی جابجایی.", "value_contribution": 4 },
+                    { "label": "مدل‌سازی پایداری شیب (FOS) و تحلیل GIS", "description": "اجرای مدل‌های پایداری و ترکیب لایه‌ها.", "value_contribution": 3.5 },
+                    { "label": "نقشه‌برداری خطر زمین‌لغزش و پایش بلادرنگ", "description": "شناسایی مناطق پرخطر و رصد جابجایی‌ها.", "value_contribution": 2.5 }
+                ]
+            },
+            "مدیریت منابع آب کشاورزی در دشت‌های بویراحمد": {
+                "data_used": "تصاویر حرارتی (Landsat TIRS, MODIS) برای LST، تصاویر چندطیفی (Sentinel-2) برای شاخص‌های پوشش گیاهی و آب (مانند NDWI, MSI)، داده‌های هواشناسی، داده‌های برداشت آب از چاه‌ها (از سنسورهای زمینی). <br><strong>جدیدترین:</strong> الگوریتم‌های یادگیری ماشین برای پیش‌بینی نیاز آبی و بهینه‌سازی تخصیص آب، و سیستم‌های پشتیبانی تصمیم‌گیری (DSS) برای کشاورزان.",
+                "algorithms": "<strong>مدل‌های بیلان انرژی:</strong> (SEBAL, METRIC) برای تخمین تبخیر و تعرق واقعی (ETa). <strong>شاخص‌های تنش آبی:</strong> (MSI - Moisture Stress Index)، تحلیل همبستگی. <br><strong>جدیدترین:</strong> الگوریتم‌های یادگیری ماشین برای پیش‌بینی نیاز آبی و بهینه‌سازی تخصیص آب، و سیستم‌های پشتیبانی تصمیم‌گیری (DSS) برای کشاورزان.",
+                "execution_steps": "<strong>جمع‌آوری و پیش‌پردازش داده‌ها:</strong> آماده‌سازی داده‌های ماهواره‌ای و هواشناسی. <strong>تخمین ETa:</strong> اجرای مدل‌های بیلان انرژی. <strong>محاسبه نیاز آبی محصولات:</strong> بر اساس ETa و ضرایب محصول. <strong>نقشه‌برداری پهنه‌بندی نیاز آبی:</strong> برای بهینه‌سازی آبیاری. <strong>ارائه توصیه‌های آبیاری:</strong> به کشاورزان برای مدیریت بهینه آب.",
+                "cost_details": "هزینه متوسط تا بالا، نیازمند داده‌های حرارتی و مدل‌سازی بیلان انرژی.",
+                "time_details": "6 تا 12 ماه (برای پوشش چرخه‌های آبیاری).",
+                "method_complexity_details": "پیچیدگی بالا، شامل مدل‌سازی هیدروژئوفیزیکی و بهینه‌سازی.",
+                "sub_activities": [
+                    { "label": "جمع‌آوری داده‌های حرارتی و چندطیفی", "description": "تهیه تصاویر LST و شاخص‌های پوشش گیاهی.", "value_contribution": 3 },
+                    { "label": "تخمین تبخیر و تعرق (ETa) با مدل‌های بیلان انرژی", "description": "محاسبه نیاز آبی واقعی مزارع.", "value_contribution": 3.4 },
+                    { "label": "نقشه‌برداری نیاز آبی و توصیه‌های آبیاری", "description": "ارائه نقشه‌های پهنه‌بندی نیاز آبی و توصیه‌های عملی.", "value_contribution": 3.4 }
+                ]
+            },
+            "پایش مناطق حفاظت‌شده دنا با سنجش از دور": {
+                "data_used": "تصاویر Sentinel-2, Landsat (برای پوشش گیاهی و تغییرات)، تصاویر VHR (برای پایش تخلفات)، داده‌های GPS از گشت‌های زمینی. <br><strong>جدیدترین:</strong> شبکه‌های عصبی کانولوشنی (CNN) برای تشخیص خودکار تخلفات (مانند جاده‌سازی غیرمجاز، قطع درختان) و پایش تنوع زیستی.",
+                "algorithms": "<strong>تشخیص تغییرات:</strong> (Post-Classification Comparison, Change Vector Analysis)، طبقه‌بندی پوشش گیاهی (Random Forest, SVM). <br><strong>جدیدترین:</strong> شبکه‌های عصبی کانولوشنی (CNN) برای تشخیص خودکار تخلفات (مانند جاده‌سازی غیرمجاز، قطع درختان) و پایش تنوع زیستی.",
+                "execution_steps": "<strong>پایش تغییرات پوشش گیاهی:</strong> شناسایی جنگل‌زدایی و تخریب. <strong>شناسایی مناطق تخریب شده:</strong> با استفاده از الگوریتم‌های تشخیص تغییر. <strong>تحلیل عوامل تخریب:</strong> بررسی دلایل تخریب (انسانی، طبیعی). <strong>تهیه گزارش‌های مدیریتی:</strong> برای سازمان‌های حفاظت محیط زیست.",
+                "cost_details": "هزینه متوسط برای داده‌ها و پردازش.",
+                "time_details": "5 تا 9 ماه.",
+                "method_complexity_details": "پیچیدگی متوسط، شامل تحلیل تغییرات و طبقه‌بندی.",
+                "sub_activities": [
+                    { "label": "پایش تغییرات پوشش گیاهی (جنگل‌زدایی)", "description": "شناسایی مناطق تخریب شده در دنا.", "value_contribution": 3 },
+                    { "label": "تشخیص تخلفات (جاده‌سازی، قطع درخت) با CNN", "description": "استفاده از یادگیری عمیق برای شناسایی فعالیت‌های غیرمجاز.", "value_contribution": 3.5 },
+                    { "label": "ارزیابی تنوع زیستی و گزارش‌دهی", "description": "پایش وضعیت گونه‌های گیاهی و جانوری.", "value_contribution": 3.2 }
+                ]
+            },
+            "تحلیل بافت‌های فرسوده و توسعه شهری گچساران": {
+                "data_used": "تصاویر هوایی/پهپادی با رزولوشن بالا، تصاویر ماهواره‌ای VHR (مانند WorldView, Pleiades)، داده‌های LiDAR، نقشه‌های کاربری اراضی, داده‌های جمعیتی و ساختمانی از شهرداری. <br><strong>جدیدترین:</strong> شبکه‌های عصبی کانولوشنی (CNN) برای تشخیص خودکار ساختمان‌های فرسوده، و مدل‌های رگرسیون فضایی برای تحلیل عوامل اجتماعی-اقتصادی مؤثر بر فرسودگی.",
+                "algorithms": "<strong>تحلیل شی‌گرا (Object-Based Image Analysis - OBIA):</strong> برای شناسایی ساختمان‌ها، خیابان‌ها و سایر ویژگی‌های شهری به عنوان اشیاء، نه پیکسل. <strong>الگوریتم‌های تشخیص تغییر (Change Detection):</strong> برای پایش فرسودگی و تخریب ساختمان‌ها در طول زمان. <strong>شاخص‌های بافت شهری:</strong> برای کمی‌سازی فرسودگی. <br><strong>جدیدترین:</strong> شبکه‌های عصبی کانولوشنی (CNN) و یادگیری عمیق برای تشخیص خودکار ساختمان‌های فرسوده از تصاویر، و مدل‌های رگرسیون فضایی برای تحلیل عوامل اجتماعی-اقتصادی مؤثر بر فرسودگی.",
+                "execution_steps": "<strong>استخراج ویژگی‌های ساختمانی:</strong> شناسایی ساختمان‌ها، مساحت، ارتفاع و تراکم آن‌ها. <strong>تحلیل تغییرات زمانی:</strong> پایش وضعیت بافت‌ها در دوره‌های مختلف. <strong>نقشه‌برداری فرسودگی:</strong> پهنه‌بندی مناطق با فرسودگی بالا. <strong>تحلیل آسیب‌پذیری اجتماعی-اقتصادی:</strong> بررسی تأثیر فرسودگی بر جوامع محلی.",
+                "cost_details": "هزینه بالا، نیازمند تصاویر با رزولوشن بالا و داده‌های LiDAR.",
+                "time_details": "9 تا 15 ماه.",
+                "method_complexity_details": "پیچیدگی بالا، شامل تحلیل شی‌گرا و مدل‌سازی سه‌بعدی.",
+                "sub_activities": [
+                    { "label": "نقشه‌برداری بافت‌های فرسوده با تصاویر VHR", "description": "شناسایی ساختمان‌های فرسوده و تخریب شده.", "value_contribution": 3.5 },
+                    { "label": "تحلیل رشد شهری و گسترش کالبدی", "description": "بررسی الگوهای توسعه شهری گچساران.", "value_contribution": 3 },
+                    { "label": "مدل‌سازی آسیب‌پذیری اجتماعی-اقتصادی", "description": "ارزیابی تأثیر فرسودگی بر جمعیت.", "value_contribution": 2.8 }
+                ]
+            },
+            "پایش مناطق مستعد آتش‌سوزی جنگل و مراتع": {
+                "data_used": "تصاویر ماهواره‌ای چندطیفی (Sentinel-2, Landsat) برای پایش پوشش گیاهی و سلامت آن، داده‌های حرارتی (MODIS, VIIRS) برای شناسایی نقاط داغ (Hotspots)، داده‌های هواشناسی (دما، رطوبت، سرعت باد) و نقشه‌های توپوگرافی (DEM). <br><strong>جدیدترین:</strong> داده‌های ماهواره‌ای هایپراسپکترال برای تشخیص دقیق‌تر ترکیبات شیمیایی و رطوبت پوشش گیاهی، و داده‌های راداری SAR برای پایش زیست‌توده و ساختار جنگل در شرایط ابری.",
+                "algorithms": "<strong>شاخص‌های پوشش گیاهی:</strong> NDVI, NDWI برای ارزیابی خشکی پوشش گیاهی. <strong>الگوریتم‌های تشخیص نقطه داغ:</strong> برای شناسایی آتش‌سوزی‌های فعال. <strong>مدل‌های پیش‌بینی خطر آتش‌سوزی:</strong> (مانند FWI - Fire Weather Index) مبتنی بر داده‌های هواشناسی و پوشش گیاهی. <br><strong>جدیدترین:</strong> شبکه‌های عصبی کانولوشنی (CNN) برای تشخیص خودکار مناطق سوخته و آسیب‌دیده، و مدل‌های یادگیری عمیق برای پیش‌بینی مناطق مستعد آتش‌سوزی بر اساس عوامل محیطی و انسانی.",
+                "execution_steps": "<strong>جمع‌آوری و پیش‌پردازش داده‌ها:</strong> شامل تصاویر ماهواره‌ای و داده‌های هواشناسی. <strong>محاسبه شاخص‌ها و مدل‌سازی خطر:</strong> تولید نقشه‌های خطر آتش‌سوزی. <strong>پایش بلادرنگ:</strong> شناسایی نقاط داغ و اعلام هشدار. <strong>اعتبارسنجی:</strong> مقایسه با داده‌های آتش‌سوزی واقعی. <strong>تهیه نقشه‌های مدیریت خطر:</strong> برای برنامه‌ریزی پیشگیرانه و واکنش.",
+                "cost_details": "هزینه متوسط تا بالا، نیازمند دسترسی به داده‌های ماهواره‌ای حرارتی و پردازش‌های زمانی-مکانی.",
+                "time_details": "6 تا 12 ماه برای راه‌اندازی اولیه و سپس پایش مستمر.",
+                "method_complexity_details": "پیچیدگی بالا، شامل مدل‌سازی خطر، تحلیل سری زمانی و پایش بلادرنگ.",
+                "sub_activities": [
+                    { "label": "پایش خشکی پوشش گیاهی (NDVI, NDWI)", "description": "استفاده از تصاویر Sentinel-2 برای ارزیابی خطر آتش‌سوزی.", "value_contribution": 3.5 },
+                    { "label": "تشخیص نقاط داغ (Hotspots) با داده‌های حرارتی", "description": "شناسایی آتش‌سوزی‌های فعال و بلادرنگ.", "value_contribution": 3.2 },
+                    { "label": "مدل‌سازی خطر آتش‌سوزی و پیش‌بینی (CNN)", "description": "توسعه مدل‌های پیش‌بینی مناطق مستعد آتش‌سوزی.", "value_contribution": 3 }
+                ]
+            },
+            "پایش تغییرات سطح آب و حجم سدهای استان": {
+                "data_used": "داده‌های ارتفاع‌سنجی ماهواره‌ای (Satellite Altimetry) از سنجنده‌هایی مانند Sentinel-3 (SRAL) و Jason (Poseidon-3B) برای اندازه‌گیری سطح آب سدها. تصاویر راداری SAR (Sentinel-1) برای ترسیم دقیق محدوده آبی سدها. داده‌های هیدرولوژیکی از ایستگاه‌های زمینی (دبی ورودی/خروجی). <br><strong>جدیدترین:</strong> ترکیب داده‌های ارتفاع‌سنجی با مدل‌های رقومی ارتفاع (DEM) با دقت بالا برای تخمین دقیق‌تر حجم سدها، و استفاده از داده‌های ماهواره‌ای گرانش‌سنجی (مانند GRACE/GRACE-FO) برای پایش تغییرات توده آب در حوضه‌های بزرگ.",
+                "algorithms": "<strong>پردازش داده‌های ارتفاع‌سنجی:</strong> برای استخراج دقیق سطح آب. <strong>طبقه‌بندی تصاویر SAR:</strong> برای ترسیم محدوده آبی و محاسبه مساحت سطح سد. <strong>منحنی‌های حجم-سطح (Area-Capacity Curves):</strong> برای تبدیل مساحت سطح به حجم آب. <strong>تحلیل سری زمانی:</strong> برای پایش نوسانات سطح و حجم آب در طول زمان. <br><strong>جدیدترین:</strong> مدل‌های هیدرولوژیکی-هیدرودینامیکی برای شبیه‌سازی جریان آب در سدها و رودخانه‌ها، و الگوریتم‌های یادگیری ماشین برای پیش‌بینی سطح آب سد بر اساس ورودی‌های اقلیمی.",
+                "execution_steps": "<strong>جمع‌آوری داده‌های ارتفاع‌سنجی و SAR:</strong> در دوره‌های زمانی منظم. <strong>استخراج سطح و مساحت آب:</strong> از داده‌های ماهواره‌ای. <strong>محاسبه حجم آب:</strong> با استفاده از منحنی‌های حجم-سطح. <strong>تحلیل نوسانات:</strong> بررسی تغییرات فصلی و سالانه. <strong>تهیه گزارش‌های مدیریتی:</strong> برای مدیریت منابع آب و برنامه‌ریزی کشاورزی.",
+                "cost_details": "هزینه متوسط، عمدتاً برای پردازش داده‌های ارتفاع‌سنجی و SAR و تحلیل‌های هیدرولوژیکی.",
+                "time_details": "5 تا 10 ماه برای راه‌اندازی و سپس پایش مستمر.",
+                "method_complexity_details": "پیچیدگی متوسط تا بالا، نیازمند تخصص در پردازش داده‌های ارتفاع‌سنجی و هیدرولوژیکی.",
+                "sub_activities": [
+                    { "label": "جمع‌آوری داده‌های ارتفاع‌سنجی و SAR", "description": "تهیه داده‌های سطح آب و مساحت سدها.", "value_contribution": 3.5 },
+                    { "label": "محاسبه حجم آب با منحنی‌های ظرفیت", "description": "تبدیل مساحت سطح به حجم آب سد.", "value_contribution": 3.3 },
+                    { "label": "تحلیل سری زمانی نوسانات سطح و حجم", "description": "پایش تغییرات در طول زمان و پیش‌بینی.", "value_contribution": 3 }
+                ]
+            },
+            "نقشه‌برداری و مدیریت فرسایش خاک در اراضی کشاورزی شیب‌دار": {
+                "data_used": "مدل ارتفاع رقومی (DEM) با دقت بسیار بالا (از LiDAR یا فتوگرامتری پهپادی) برای محاسبه شیب و طول شیب. تصاویر ماهواره‌ای چندطیفی (Sentinel-2, Landsat) برای پایش پوشش گیاهی و کاربری اراضی. داده‌های خاک (نوع، بافت، نفوذپذیری) از نمونه‌برداری‌های زمینی. داده‌های بارش. <br><strong>جدیدترین:</strong> داده‌های سه‌بعدی از پهپادها برای مدل‌های دقیق فرسایش شیاری و خندقی، و داده‌های هایپراسپکترال برای شناسایی دقیق‌تر ترکیبات خاک و مواد آلی.",
+                "algorithms": "<strong>مدل‌های فرسایش خاک:</strong> (مانند USLE/RUSLE)، تحلیل تغییرات پوشش گیاهی، طبقه‌بندی مناطق فرسایش‌پذیر. <br><strong>جدیدترین:</strong> مدل‌های یادگیری ماشین برای پیش‌بینی مناطق مستعد فرسایش و ارزیابی اثرات اقدامات حفاظتی، و مدل‌های هیدرولوژیکی توزیع‌شده برای شبیه‌سازی جریان سطحی و فرسایش.",
+                "execution_steps": "<strong>تولید DEM دقیق:</strong> تهیه مدل ارتفاعی از پهپاد یا LiDAR. <strong>نقشه‌برداری کاربری اراضی:</strong> شناسایی انواع پوشش زمین. <strong>مدل‌سازی فرسایش:</strong> اجرای مدل‌های فرسایش خاک در محیط GIS. <strong>تهیه نقشه خطر فرسایش:</strong> پهنه‌بندی مناطق با شدت فرسایش متفاوت. <strong>پیشنهاد راهکارهای مدیریتی:</strong> ارائه توصیه‌هایی برای کنترل فرسایش (مانند تراس‌بندی، کشت نواری).",
+                "cost_details": "هزینه متوسط تا بالا، نیازمند داده‌های DEM با دقت بالا و تحلیل‌های GIS تخصصی.",
+                "time_details": "8 تا 15 ماه.",
+                "method_complexity_details": "پیچیدگی بالا، شامل مدل‌سازی فرسایش، تحلیل فضایی و داده‌های خاک.",
+                "sub_activities": [
+                    { "label": "تولید DEM دقیق و نقشه‌های پوشش گیاهی", "description": "استفاده از LiDAR/پهپاد و تصاویر ماهواره‌ای.", "value_contribution": 3.5 },
+                    { "label": "مدل‌سازی فرسایش خاک (RUSLE) و تحلیل مکانی", "description": "اجرای مدل‌های فرسایش و شناسایی مناطق پرخطر.", "value_contribution": 3.2 },
+                    { "label": "پایش تغییرات و ارائه راهکارهای مدیریتی", "description": "بررسی روند فرسایش و پیشنهاد روش‌های کنترل.", "value_contribution": 3 }
+                ]
+            },
+            "تحلیل و پایش توسعه کالبدی شهرها و روستاهای استان": {
+                "data_used": "تصاویر ماهواره‌ای با رزولوشن بسیار بالا (VHR) مانند WorldView, Pleiades, GeoEye برای شناسایی جزئیات ساختمانی. تصاویر Sentinel-2 و Landsat برای تحلیل تغییرات در مقیاس وسیع‌تر و سری‌های زمانی. داده‌های جمعیتی و آماری از مراکز آمار. <br><strong>جدیدترین:</strong> داده‌های LiDAR برای مدل‌های سه‌بعدی شهری و تحلیل تراکم عمودی، و داده‌های OpenStreetMap برای ویژگی‌های زیرساختی و شبکه‌های حمل و نقل.",
+                "algorithms": "<strong>طبقه‌بندی شی‌گرا (OBIA):</strong> برای شناسایی ساختمان‌ها، خیابان‌ها و سایر ویژگی‌های شهری به عنوان اشیاء. <strong>تحلیل تغییرات:</strong> (Change Detection) با استفاده از روش‌هایی مانند Post-Classification Comparison یا Change Vector Analysis برای پایش رشد شهری. <strong>یادگیری عمیق:</strong> (مانند U-Net, Mask R-CNN) برای استخراج خودکار مناطق ساخته شده و تغییرات آن‌ها. <strong>مدل‌سازی رشد شهری:</strong> (مانند Cellular Automata - CA) برای پیش‌بینی توسعه آتی.",
+                "execution_steps": "<strong>جمع‌آوری و پیش‌پردازش تصاویر:</strong> شامل تصحیحات و ثبت دقیق. <strong>استخراج مناطق ساخته شده:</strong> شناسایی و نقشه‌برداری ساختمان‌ها و زیرساخت‌ها. <strong>تحلیل رشد و گسترش:</strong> پایش تغییرات در طول زمان. <strong>مدل‌سازی و پیش‌بینی:</strong> شبیه‌سازی سناریوهای توسعه آتی. <strong>تهیه نقشه‌های توسعه:</strong> برای برنامه‌ریزی شهری و روستایی.",
+                "cost_details": "هزینه بالا، نیازمند تصاویر VHR و پردازش‌های فشرده.",
+                "time_details": "9 تا 18 ماه.",
+                "method_complexity_details": "پیچیدگی بالا، شامل تحلیل تصاویر با رزولوشن بالا و مدل‌سازی رشد شهری.",
+                "sub_activities": [
+                    { "label": "پایش رشد شهری با تصاویر VHR", "description": "تحلیل گسترش فیزیکی شهرها و روستاها.", "value_contribution": 3.5 },
+                    { "label": "استخراج مناطق ساخته شده (CNN)", "description": "شناسایی خودکار ساختمان‌ها و زیرساخت‌ها.", "value_contribution": 3.3 },
+                    { "label": "مدل‌سازی و پیش‌بینی توسعه کالبدی", "description": "پیش‌بینی سناریوهای رشد آتی.", "value_contribution": 2.7 }
+                ]
+            },
+            "ارزیابی پتانسیل انرژی‌های تجدیدپذیر (باد و خورشید) در مناطق کوهستانی": {
+                "data_used": "داده‌های تابش خورشیدی از ماهواره (مانند NASA POWER, SolarAnywhere)، داده‌های سرعت و جهت باد از مدل‌های اقلیمی (مانند WRF) یا ایستگاه‌های هواشناسی. مدل ارتفاع رقومی (DEM) برای تحلیل توپوگرافی و اثرات سایه. نقشه‌های کاربری اراضی و محدودیت‌های محیط زیستی. <br><strong>جدیدترین:</strong> داده‌های LiDAR برای مدل‌سازی دقیق اثرات توپوگرافی بر جریان باد و تابش خورشیدی، و داده‌های ماهواره‌ای سنجش از دور (مانند Sentinel-1 SAR) برای شناسایی مناطق بدون پوشش گیاهی و مناسب برای نصب.",
+                "algorithms": "<strong>مدل‌سازی تابش خورشیدی:</strong> محاسبه تابش مستقیم و پراکنده بر روی سطوح شیب‌دار. <strong>مدل‌سازی پتانسیل باد:</strong> تخمین سرعت باد در ارتفاعات مختلف با توجه به توپوگرافی. <strong>تحلیل چندمعیاره GIS:</strong> (AHP, MCDA) برای ترکیب عوامل مختلف (پتانسیل انرژی، شیب، دسترسی، محدودیت‌ها). <br><strong>جدیدترین:</strong> الگوریتم‌های یادگیری ماشین (مانند Random Forest Regression) برای پیش‌بینی دقیق‌تر پتانسیل انرژی در مناطق خاص، و مدل‌های شبیه‌سازی جریان هوا (CFD) برای تحلیل دقیق پتانسیل باد در مناطق پیچیده کوهستانی.",
+                "execution_steps": "<strong>جمع‌آوری و تحلیل داده‌های اقلیمی:</strong> شامل تابش خورشیدی و باد. <strong>تحلیل توپوگرافی:</strong> محاسبه شیب، جهت و اثرات سایه از DEM. <strong>مدل‌سازی پتانسیل انرژی:</strong> تخمین پتانسیل خورشیدی و بادی در مناطق مختلف. <strong>تحلیل مکانیابی:</strong> شناسایی مناطق بهینه با در نظر گرفتن محدودیت‌ها. <strong>تهیه نقشه‌های پتانسیل انرژی:</strong> برای برنامه‌ریزی توسعه انرژی‌های تجدیدپذیر.",
+                "cost_details": "هزینه متوسط تا بالا، نیازمند داده‌های اقلیمی و DEM دقیق، و مدل‌سازی پیچیده.",
+                "time_details": "8 تا 15 ماه.",
+                "method_complexity_details": "پیچیدگی بالا، شامل مدل‌سازی اقلیمی و تحلیل‌های چندمعیاره فضایی.",
+                "sub_activities": [
+                    { "label": "جمع‌آوری داده‌های تابش خورشیدی و باد", "description": "تهیه داده‌های اقلیمی و DEM دقیق.", "value_contribution": 3 },
+                    { "label": "مدل‌سازی پتانسیل خورشیدی و بادی", "description": "تخمین پتانسیل انرژی در مناطق کوهستانی.", "value_contribution": 3.2 },
+                    { "label": "تحلیل مکانیابی و تهیه نقشه‌های پتانسیل", "description": "شناسایی مناطق بهینه برای نصب.", "value_contribution": 2.8 }
+                ]
+            },
+            "پایش و پیش‌بینی خشکسالی کشاورزی با استفاده از شاخص‌های ترکیبی": {
+                "data_used": "تصاویر ماهواره‌ای Sentinel-2 و Landsat برای شاخص‌های پوشش گیاهی (NDVI, EVI, MSAVI). داده‌های بارش ماهواره‌ای (GPM, TRMM). داده‌های رطوبت خاک ماهواره‌ای (SMAP, SMOS). داده‌های اقلیمی (دما، تبخیر) از ایستگاه‌های زمینی. <br><strong>جدیدترین:</strong> داده‌های تبخیر و تعرق واقعی (ETa) از مدل‌های بیلان انرژی (SEBAL, METRIC) و داده‌های شاخص خشکسالی پوشش گیاهی (VCI) و شاخص خشکسالی استاندارد شده بارش-تبخیر و تعرق (SPEI).",
+                "algorithms": "<strong>شاخص‌های خشکسالی:</strong> SPI, SPEI, VCI, TCI (Temperature Condition Index), VHI (Vegetation Health Index). <strong>تحلیل سری زمانی:</strong> برای پایش روند خشکسالی. <strong>مدل‌های یادگیری ماشین:</strong> (مانند Random Forest, SVM, Gradient Boosting) برای پیش‌بینی خشکسالی کشاورزی. <strong>مدل‌های ترکیبی:</strong> (Ensemble Models) برای بهبود دقت پیش‌بینی. <br><strong>جدیدترین:</strong> مدل‌های یادگیری عمیق (مانند LSTM برای سری‌های زمانی) برای پیش‌بینی خشکسالی کشاورزی و تحلیل تأثیر بر سلامت جنگل.",
+                "execution_steps": "<strong>جمع‌آوری و پیش‌پردازش داده‌ها:</strong> شامل تصحیحات و همسان‌سازی داده‌های ماهواره‌ای و زمینی. <strong>محاسبه شاخص‌ها و مدل‌سازی خطر:</strong> تولید نقشه‌های خطر خشکسالی. <strong>مدل‌سازی و پیش‌بینی:</strong> توسعه مدل‌های پیش‌بینی خشکسالی کشاورزی. <strong>تهیه نقشه‌های خطر خشکسالی:</strong> پهنه‌بندی مناطق بر اساس شدت و مدت خشکسالی. <strong>ارائه توصیه‌های مدیریتی:</strong> برای کشاورزان و مدیران منابع آب.",
+                "cost_details": "هزینه متوسط تا بالا، نیازمند دسترسی به داده‌های ماهواره‌ای متنوع و قدرت پردازش بالا برای مدل‌سازی.",
+                "time_details": "8 تا 15 ماه برای توسعه مدل و سپس پایش مستمر.",
+                "method_complexity_details": "پیچیدگی بالا، شامل ترکیب داده‌های چندمنبعی، تحلیل سری زمانی پیشرفته و مدل‌های یادگیری ماشین.",
+                "sub_activities": [
+                    { "label": "جمع‌آوری و پیش‌پردازش داده‌های اقلیمی و ماهواره‌ای", "description": "تهیه داده‌های NDVI، بارش، رطوبت خاک و دما.", "value_contribution": 3.5 },
+                    { "label": "محاسبه شاخص‌های ترکیبی خشکسالی (SPEI, VHI)", "description": "استخراج شاخص‌های پیشرفته از داده‌های ماهواره‌ای.", "value_contribution": 3.4 },
+                    { "label": "مدل‌سازی و پیش‌بینی خشکسالی کشاورزی (LSTM)", "description": "توسعه مدل‌های یادگیری عمیق برای پیش‌بینی خشکسالی.", "value_contribution": 3 }
+                ]
+            },
+            "نقشه‌برداری دقیق پوشش گیاهی و کاربری اراضی کوهستانی": {
+                "data_used": "تصاویر ماهواره‌ای چندطیفی با رزولوشن بالا (Sentinel-2, Landsat 8/9). تصاویر ماهواره‌ای با رزولوشن بسیار بالا (VHR) مانند WorldView, Pleiades برای جزئیات مناطق کوچک. داده‌های LiDAR برای اطلاعات ارتفاعی و ساختار پوشش گیاهی. داده‌های زمینی (Field Survey) برای اعتبارسنجی و نمونه‌های آموزشی.",
+                "algorithms": "<strong>طبقه‌بندی نظارت‌شده:</strong> (مانند Random Forest, SVM, Maximum Likelihood) برای تفکیک انواع پوشش گیاهی و کاربری اراضی. <strong>طبقه‌بندی شی‌گرا (OBIA):</strong> برای تحلیل تصاویر VHR و تفکیک عوارض بر اساس شکل، بافت و روابط فضایی. <strong>یادگیری عمیق:</strong> (مانند U-Net, Mask R-CNN) برای سگمنتیشن معنایی و استخراج خودکار کلاس‌های پوشش گیاهی و کاربری اراضی. <strong>تحلیل سری زمانی:</strong> برای پایش تغییرات فصلی و سالانه پوشش گیاهی.",
+                "execution_steps": "<strong>جمع‌آوری و پیش‌پردازش داده‌ها:</strong> شامل تصحیحات اتمسفری، هندسی و موزائیک‌سازی تصاویر. <strong>انتخاب نمونه‌های آموزشی:</strong> جمع‌آوری داده‌های زمینی برای آموزش مدل. <strong>اجرای الگوریتم‌های طبقه‌بندی:</strong> تولید نقشه پوشش گیاهی و کاربری اراضی. <strong>اعتبارسنجی نقشه:</strong> ارزیابی دقت نقشه با داده‌های مستقل. <strong>تولید نقشه‌های نهایی:</strong> برای برنامه‌ریزی منابع طبیعی، مدیریت جنگل و مراتع، و ارزیابی تغییرات محیطی.",
+                "cost_details": "هزینه متوسط تا بالا، نیازمند تصاویر با رزولوشن بالا و پردازش‌های فشرده، و همچنین هزینه‌های نمونه‌برداری زمینی.",
+                "time_details": "9 تا 18 ماه بسته به مقیاس منطقه و پیچیدگی پوشش گیاهی.",
+                "method_complexity_details": "پیچیدگی بالا، شامل طبقه‌بندی پیشرفته، تحلیل شی‌گرا و یادگیری عمیق.",
+                "sub_activities": [
+                    { "label": "جمع‌آوری تصاویر Sentinel-2 و VHR", "description": "تهیه تصاویر چندطیفی و رزولوشن بالا.", "value_contribution": 3.5 },
+                    { "label": "طبقه‌بندی پوشش گیاهی (Deep Learning)", "description": "استفاده از CNN برای نقشه‌برداری دقیق.", "value_contribution": 3.3 },
+                    { "label": "اعتبارسنجی و تولید نقشه نهایی", "description": "تأیید دقت نقشه با داده‌های زمینی.", "value_contribution": 3 }
+                ]
+            },
+            "تحلیل تغییرات خط ساحلی رودخانه‌ها و مسیل‌ها": {
+                "data_used": "تصاویر ماهواره‌ای چندطیفی (Sentinel-2, Landsat) با رزولوشن بالا در بازه‌های زمانی مختلف. تصاویر هوایی تاریخی (اگر موجود باشد). مدل ارتفاع رقومی (DEM) برای تحلیل توپوگرافی بستر رودخانه. <br><strong>جدیدترین:</strong> داده‌های LiDAR برای مدل‌سازی دقیق بستر رودخانه و تشخیص تغییرات ارتفاعی، و تصاویر ماهواره‌ای با رزولوشن بسیار بالا (VHR) برای پایش جزئیات تغییرات.",
+                "algorithms": "<strong>تشخیص تغییرات:</strong> (Change Detection) با استفاده از روش‌هایی مانند Change Vector Analysis (CVA), Image Differencing, Post-Classification Comparison. <strong>شاخص‌های آب:</strong> (NDWI, AWEI) برای ترسیم دقیق محدوده آبی. <strong>تحلیل سری زمانی:</strong> برای پایش روندهای بلندمدت تغییرات. <strong>مدل‌های هیدرودینامیکی:</strong> برای شبیه‌سازی جریان آب و فرسایش بستر رودخانه.",
+                "execution_steps": "<strong>جمع‌آوری تصاویر تاریخی و فعلی:</strong> در بازه‌های زمانی مختلف. <strong>پیش‌پردازش و همسان‌سازی تصاویر:</strong> برای مقایسه دقیق. <strong>ترسیم خطوط ساحلی:</strong> استخراج محدوده آبی رودخانه‌ها در زمان‌های مختلف. <strong>تحلیل تغییرات:</strong> محاسبه میزان و جهت جابجایی خطوط ساحلی. <strong>شناسایی مناطق فرسایش و رسوب:</strong> تعیین مناطق مستعد خطر. <strong>تهیه نقشه‌های خطر:</strong> برای مدیریت سیلاب، فرسایش و برنامه‌ریزی کاربری اراضی حاشیه رودخانه.",
+                "cost_details": "هزینه متوسط تا بالا، نیازمند دسترسی به آرشیو تصاویر ماهواره‌ای و تحلیل‌های زمانی-مکانی.",
+                "time_details": "6 تا 14 ماه.",
+                "method_complexity_details": "پیچیدگی بالا، شامل تحلیل سری زمانی تصاویر، مدل‌سازی هیدرودینامیکی و تشخیص تغییرات دقیق.",
+                "sub_activities": [
+                    { "label": "جمع‌آوری سری‌های زمانی تصاویر ماهواره‌ای", "description": "تهیه تصاویر Sentinel-2 و Landsat در بازه‌های مختلف.", "value_contribution": 3.5 },
+                    { "label": "ترسیم خطوط ساحلی و تشخیص تغییرات", "description": "استخراج محدوده آبی و شناسایی مناطق فرسایش/رسوب.", "value_contribution": 3.2 },
+                    { "label": "تحلیل روند و تهیه نقشه‌های خطر", "description": "بررسی الگوهای تغییر و تهیه نقشه‌های مدیریتی.", "value_contribution": 3 }
+                ]
+            },
+            "شناسایی و پایش معادن و مناطق تخریب شده": {
+                "data_used": "تصاویر ماهواره‌ای چندطیفی (Sentinel-2, Landsat) برای پایش تغییرات پوشش زمین. تصاویر ماهواره‌ای راداری SAR (Sentinel-1) برای تشخیص تغییرات فیزیکی سطح زمین و فرونشست. تصاویر ماهواره‌ای با رزولوشن بسیار بالا (VHR) برای جزئیات عملیات معدنی. داده‌های زمین‌شناسی و نقشه‌های معدنی.",
+                "algorithms": "<strong>تشخیص تغییرات:</strong> (Change Detection) برای شناسایی مناطق جدید معدنی یا گسترش معادن موجود. <strong>طبقه‌بندی نظارت‌شده/نظارت‌نشده:</strong> برای تفکیک مناطق معدنی از سایر کاربری‌ها. <strong>تحلیل طیفی:</strong> برای شناسایی کانی‌ها و مواد معدنی. <strong>تداخل‌سنجی راداری (InSAR):</strong> برای پایش فرونشست یا بالاآمدگی زمین ناشی از فعالیت‌های معدنی. <strong>یادگیری عمیق:</strong> برای تشخیص خودکار سازه‌های معدنی و مناطق تخریب شده.",
+                "execution_steps": "<strong>جمع‌آوری و پیش‌پردازش داده‌ها:</strong> شامل تصاویر اپتیکال و راداری در بازه‌های زمانی مختلف. <strong>شناسایی مناطق معدنی:</strong> با استفاده از طبقه‌بندی و تشخیص تغییر. <strong>پایش تغییرات:</strong> رصد گسترش معادن و مناطق تخریب شده. <strong>تحلیل فرونشست:</strong> استفاده از InSAR برای پایش جابجایی‌های عمودی. <strong>تهیه گزارش‌های محیط زیستی:</strong> برای ارزیابی اثرات زیست‌محیطی معادن و برنامه‌ریزی احیا.",
+                "cost_details": "هزینه بالا، نیازمند تصاویر راداری و اپتیکال متنوع و پردازش‌های تخصصی InSAR.",
+                "time_details": "9 تا 18 ماه.",
+                "method_complexity_details": "پیچیدگی بالا، شامل تحلیل‌های چندحسگری، تشخیص تغییرات و تحلیل‌های ژئودینامیکی.",
+                "sub_activities": [
+                    { "label": "پایش تغییرات سطح زمین با تصاویر ماهواره‌ای", "description": "استفاده از تصاویر Sentinel-2 و Sentinel-1 برای تشخیص مناطق تخریب شده.", "value_contribution": 3.5 },
+                    { "label": "شناسایی معادن فعال و متروکه (Deep Learning)", "description": "استفاده از یادگیری عمیق برای طبقه‌بندی مناطق معدنی.", "value_contribution": 3.2 },
+                    { "label": "تحلیل فرونشست با InSAR و گزارش‌دهی", "description": "پایش جابجایی‌های زمین ناشی از فعالیت‌های معدنی.", "value_contribution": 2.8 }
+                ]
+            },
+            "مدل‌سازی پتانسیل انرژی زمین‌گرمایی با داده‌های حرارتی": {
+                "data_used": "تصاویر حرارتی ماهواره‌ای (مانند Landsat TIRS, ASTER) برای استخراج دمای سطح زمین (LST). داده‌های ژئوفیزیکی (مانند داده‌های گرادیان حرارتی، جریان حرارتی). نقشه‌های زمین‌شناسی و گسل‌ها. داده‌های چاه‌های اکتشافی (اگر موجود باشد).",
+                "algorithms": "<strong>محاسبه LST:</strong> از باندهای حرارتی تصاویر ماهواره‌ای. <strong>تحلیل ناهنجاری‌های حرارتی:</strong> شناسایی مناطق با دمای سطح غیرعادی بالا. <strong>تحلیل همبستگی:</strong> بین LST و ویژگی‌های زمین‌شناختی (مانند گسل‌ها، فعالیت‌های آتشفشانی). <strong>مدل‌سازی فضایی GIS:</strong> برای ترکیب لایه‌های مختلف اطلاعاتی و تعیین مناطق با پتانسیل زمین‌گرمایی بالا. <strong>یادگیری ماشین:</strong> برای پیش‌بینی مناطق مستعد بر اساس ویژگی‌های زمین‌شناختی و حرارتی.",
+                "execution_steps": "<strong>جمع‌آوری و پیش‌پردازش داده‌های حرارتی:</strong> شامل تصحیحات و استخراج LST. <strong>ادغام با داده‌های زمین‌شناختی:</strong> ترکیب LST با نقشه‌های گسل‌ها و ساختار زمین. <strong>شناسایی ناهنجاری‌های حرارتی:</strong> تعیین مناطق با پتانسیل زمین‌گرمایی. <strong>مدل‌سازی پتانسیل:</strong> تولید نقشه‌های پهنه‌بندی پتانسیل زمین‌گرمایی. <strong>اعتبارسنجی:</strong> مقایسه با داده‌های چاه‌ها یا مطالعات زمینی. <strong>تهیه گزارش‌های ارزیابی:</strong> برای توسعه انرژی‌های تجدیدپذیر.",
+                "cost_details": "هزینه متوسط تا بالا، نیازمند داده‌های حرارتی ماهواره‌ای و داده‌های ژئوفیزیکی.",
+                "time_details": "8 تا 15 ماه.",
+                "method_complexity_details": "پیچیدگی بالا، شامل تحلیل حرارتی، مدل‌سازی زمین‌شناختی و تحلیل‌های فضایی.",
+                "sub_activities": [
+                    { "label": "جمع‌آوری و پیش‌پردازش داده‌های حرارتی و زمین‌شناختی", "description": "تهیه تصاویر LST و نقشه‌های گسل‌ها.", "value_contribution": 3.5 },
+                    { "label": "تحلیل ناهنجاری‌های حرارتی و همبستگی", "description": "شناسایی مناطق با پتانسیل زمین‌گرمایی.", "value_contribution": 3.2 },
+                    { "label": "مدل‌سازی پتانسیل و تهیه نقشه‌های نهایی", "description": "تولید نقشه‌های پهنه‌بندی پتانسیل زمین‌گرمایی.", "value_contribution": 2.5 }
+                ]
+            },
+            "ارزیابی ظرفیت برد اکولوژیک مناطق گردشگری": {
+                "data_used": "تصاویر ماهواره‌ای چندطیفی (Sentinel-2, Landsat) برای نقشه‌برداری پوشش گیاهی و کاربری اراضی. مدل ارتفاع رقومی (DEM) برای تحلیل توپوگرافی و شیب. داده‌های زیست‌محیطی (تنوع زیستی، حساسیت اکولوژیک). داده‌های زیرساختی (جاده‌ها، امکانات گردشگری). داده‌های جمعیتی و آماری گردشگران.",
+                "algorithms": "<strong>تحلیل چندمعیاره GIS:</strong> (AHP, MCDA) برای ترکیب عوامل اکولوژیک، اجتماعی و اقتصادی. <strong>مدل‌سازی پایداری:</strong> ارزیابی تأثیر فعالیت‌های گردشگری بر محیط زیست. <strong>شاخص‌های زیست‌محیطی:</strong> (مانند شاخص سلامت اکوسیستم). <strong>یادگیری ماشین:</strong> برای پیش‌بینی فشار گردشگری و اثرات آن بر مناطق حساس.",
+                "execution_steps": "<strong>نقشه‌برداری پوشش گیاهی و کاربری اراضی:</strong> شناسایی مناطق طبیعی و گردشگری. <strong>تحلیل عوامل اکولوژیک:</strong> ارزیابی حساسیت اکوسیستم‌ها. <strong>تحلیل عوامل اجتماعی-اقتصادی:</strong> بررسی تعداد گردشگران و زیرساخت‌ها. <strong>مدل‌سازی ظرفیت برد:</strong> تعیین حداکثر تعداد گردشگر قابل تحمل. <strong>تهیه نقشه‌های پهنه‌بندی ظرفیت برد:</strong> برای مدیریت پایدار گردشگری. <strong>ارائه توصیه‌های مدیریتی:</strong> برای حفظ مناطق طبیعی و توسعه گردشگری پایدار.",
+                "cost_details": "هزینه متوسط تا بالا، نیازمند داده‌های مکانی متنوع و تحلیل‌های GIS پیچیده.",
+                "time_details": "9 تا 16 ماه.",
+                "method_complexity_details": "پیچیدگی بالا، شامل تحلیل‌های چندمعیاره، مدل‌سازی اکولوژیک و تحلیل‌های فضایی.",
+                "sub_activities": [
+                    { "label": "نقشه‌برداری پوشش گیاهی و کاربری اراضی", "description": "شناسایی مناطق طبیعی و گردشگری با تصاویر ماهواره‌ای.", "value_contribution": 3 },
+                    { "label": "تحلیل عوامل اکولوژیک و اجتماعی-اقتصادی", "description": "ارزیابی حساسیت اکوسیستم‌ها و فشار گردشگری.", "value_contribution": 3.2 },
+                    { "label": "مدل‌سازی ظرفیت برد اکولوژیک و تهیه نقشه‌ها", "description": "تعیین حداکثر تعداد گردشگر قابل تحمل و ارائه توصیه‌ها.", "value_contribution": 2.9 }
+                ]
+            }
+        };
+
+        // Mapping of sub-activity labels to their parent project names for Sunburst chart custom data
+        const activityToProjectMap = {
+            "پایش نشت نفت در خطوط انتقال گچساران": "پایش نشت نفت در خطوط انتقال گچساران",
+            "مدل‌سازی خشکسالی و تأثیر آن بر جنگل‌های بلوط": "مدل‌سازی خشکسالی و تأثیر آن بر جنگل‌های بلوط",
+            "مکان‌یابی نیروگاه‌های خورشیدی در مناطق کم‌شیب": "مکان‌یابی نیروگاه‌های خورشیدی در مناطق کم‌شیب",
+            "پایش تغییرات پوشش جنگلی زاگرس با Sentinel": "پایش تغییرات پوشش جنگلی زاگرس با Sentinel",
+            "تحلیل ریسک سیلاب در حوضه رودخانه بشار": "تحلیل ریسک سیلاب در حوضه رودخانه بشار",
+            "تحلیل رشد شهری و جزایر گرمایی یاسوج": "تحلیل رشد شهری و جزایر گرمایی یاسوج",
+            "پایش کیفیت آب سد کوثر با تصاویر ماهواره‌ای": "پایش کیفیت آب سد کوثر با تصاویر ماهواره‌ای",
+            "نقشه‌برداری گسل‌های فعال و پایش لرزه‌خیزی استان": "نقشه‌برداری گسل‌های فعال و پایش لرزه‌خیزی استان",
+            "پایش فرسایش خاک در اراضی کشاورزی شیب‌دار": "پایش فرسایش خاک در اراضی کشاورزی شیب‌دار",
+            "شناسایی اراضی مستعد کشت دیم در دشت‌های سردسیری": "شناسایی اراضی مستعد کشت دیم در دشت‌های سردسیری",
+            "پایش سلامت باغات سیب و گردو با تصاویر پهپادی": "پایش سلامت باغات سیب و گردو با تصاویر پهپادی",
+            "تحلیل پایداری شیب‌ها و خطر زمین‌لغزش در جاده‌های کوهستانی": "تحلیل پایداری شیب‌ها و خطر زمین‌لغزش در جاده‌های کوهستانی",
+            "مدیریت منابع آب کشاورزی در دشت‌های بویراحمد": "مدیریت منابع آب کشاورزی در دشت‌های بویراحمد",
+            "پایش مناطق حفاظت‌شده دنا با سنجش از دور": "پایش مناطق حفاظت‌شده دنا با سنجش از دور",
+            "تحلیل بافت‌های فرسوده و توسعه شهری گچساران": "تحلیل بافت‌های فرسوده و توسعه شهری گچساران",
+            "پایش مناطق مستعد آتش‌سوزی جنگل و مراتع": "پایش مناطق مستعد آتش‌سوزی جنگل و مراتع",
+            "پایش تغییرات سطح آب و حجم سدهای استان": "پایش تغییرات سطح آب و حجم سدهای استان",
+            "نقشه‌برداری و مدیریت فرسایش خاک در اراضی کشاورزی شیب‌دار": "نقشه‌برداری و مدیریت فرسایش خاک در اراضی کشاورزی شیب‌دار",
+            "تحلیل و پایش توسعه کالبدی شهرها و روستاهای استان": "تحلیل و پایش توسعه کالبدی شهرها و روستاهای استان",
+            "ارزیابی پتانسیل انرژی‌های تجدیدپذیر (باد و خورشید) در مناطق کوهستانی": "ارزیابی پتانسیل انرژی‌های تجدیدپذیر (باد و خورشید) در مناطق کوهستانی",
+            "پایش و پیش‌بینی خشکسالی کشاورزی با استفاده از شاخص‌های ترکیبی": "پایش و پیش‌بینی خشکسالی کشاورزی با استفاده از شاخص‌های ترکیبی",
+            "نقشه‌برداری دقیق پوشش گیاهی و کاربری اراضی کوهستانی": "نقشه‌برداری دقیق پوشش گیاهی و کاربری اراضی کوهستانی",
+            "تحلیل تغییرات خط ساحلی رودخانه‌ها و مسیل‌ها": "تحلیل تغییرات خط ساحلی رودخانه‌ها و مسیل‌ها",
+            "شناسایی و پایش معادن و مناطق تخریب شده": "شناسایی و پایش معادن و مناطق تخریب شده",
+            "مدل‌سازی پتانسیل انرژی زمین‌گرمایی با داده‌های حرارتی": "مدل‌سازی پتانسیل انرژی زمین‌گرمایی با داده‌های حرارتی",
+            "ارزیابی ظرفیت برد اکولوژیک مناطق گردشگری": "ارزیابی ظرفیت برد اکولوژیک مناطق گردشگری"
+        };
+
+        // Raw data for Sunburst chart structure (Domain -> Activity)
+        const sunburstRawData = [
+            { "دسته": "نفت و گاز", "فعالیت": "پایش نشت نفت در خطوط انتقال گچساران", "اهمیت": 9.8 },
+            { "دسته": "محیط زیست", "فعالیت": "مدل‌سازی خشکسالی و تأثیر آن بر جنگل‌های بلوط", "اهمیت": 9.9 },
+            { "دسته": "برق و انرژی", "فعالیت": "مکان‌یابی نیروگاه‌های خورشیدی در مناطق کم‌شیب", "اهمیت": 9.5 },
+            { "دسته": "محیط زیست", "فعالیت": "پایش تغییرات پوشش جنگلی زاگرس با Sentinel", "اهمیت": 9.8 },
+            { "دسته": "مخاطرات طبیعی", "فعالیت": "تحلیل ریسک سیلاب در حوضه رودخانه بشار", "اهمیت": 9.9 },
+            { "دسته": "شهرسازی", "فعالیت": "تحلیل رشد شهری و جزایر گرمایی یاسوج", "اهمیت": 9.4 },
+            { "دسته": "محیط زیست", "فعالیت": "پایش کیفیت آب سد کوثر با تصاویر ماهواره‌ای", "اهمیت": 9.6 },
+            { "دسته": "زمین‌شناسی", "فعالیت": "نقشه‌برداری گسل‌های فعال و پایش لرزه‌خیزی استان", "اهمیت": 10.0 },
+            { "دسته": "کشاورزی", "فعالیت": "پایش فرسایش خاک در اراضی کشاورزی شیب‌دار", "اهمیت": 9.5 },
+            { "دسته": "کشاورزی", "فعالیت": "شناسایی اراضی مستعد کشت دیم در دشت‌های سردسیری", "اهمیت": 9.2 },
+            { "دسته": "کشاورزی", "فعالیت": "پایش سلامت باغات سیب و گردو با تصاویر پهپادی", "اهمیت": 9.9 },
+            { "دسته": "مخاطرات طبیعی", "فعالیت": "تحلیل پایداری شیب‌ها و خطر زمین‌لغزش در جاده‌های کوهستانی", "اهمیت": 10.0 },
+            { "دسته": "کشاورزی", "فعالیت": "مدیریت منابع آب کشاورزی در دشت‌های بویراحمد", "اهمیت": 9.8 },
+            { "دسته": "محیط زیست", "فعالیت": "پایش مناطق حفاظت‌شده دنا با سنجش از دور", "اهمیت": 9.7 },
+            { "دسته": "شهرسازی", "فعالیت": "تحلیل بافت‌های فرسوده و توسعه شهری گچساران", "اهمیت": 9.3 },
+            { "دسته": "مخاطرات طبیعی", "فعالیت": "پایش مناطق مستعد آتش‌سوزی جنگل و مراتع", "اهمیت": 9.7 },
+            { "دسته": "محیط زیست", "فعالیت": "پایش تغییرات سطح آب و حجم سدهای استان", "اهمیت": 9.6 },
+            { "دسته": "کشاورزی", "فعالیت": "نقشه‌برداری و مدیریت فرسایش خاک در اراضی کشاورزی شیب‌دار", "اهمیت": 9.5 },
+            { "دسته": "شهرسازی", "فعالیت": "تحلیل و پایش توسعه کالبدی شهرها و روستاهای استان", "اهمیت": 9.3 },
+            { "دسته": "برق و انرژی", "فعالیت": "ارزیابی پتانسیل انرژی‌های تجدیدپذیر (باد و خورشید) در مناطق کوهستانی", "اهمیت": 9.0 },
+            { "دسته": "کشاورزی", "فعالیت": "پایش و پیش‌بینی خشکسالی کشاورزی با استفاده از شاخص‌های ترکیبی", "اهمیت": 9.9 },
+            { "دسته": "محیط زیست", "فعالیت": "نقشه‌برداری دقیق پوشش گیاهی و کاربری اراضی کوهستانی", "اهمیت": 9.8 },
+            { "دسته": "مخاطرات طبیعی", "فعالیت": "تحلیل تغییرات خط ساحلی رودخانه‌ها و مسیل‌ها", "اهمیت": 9.7 },
+            { "دسته": "زمین‌شناسی", "فعالیت": "شناسایی و پایش معادن و مناطق تخریب شده", "اهمیت": 9.5 },
+            { "دسته": "برق و انرژی", "فعالیت": "مدل‌سازی پتانسیل انرژی زمین‌گرمایی با داده‌های حرارتی", "اهمیت": 9.2 },
+            { "دسته": "محیط زیست", "فعالیت": "ارزیابی ظرفیت برد اکولوژیک مناطق گردشگری", "اهمیت": 9.1 }
+        ];
+
+        // Define a consistent color palette for different domains
+        const domainColors = {
+            "نفت و گاز": '#EF4444', // Red-500
+            "محیط زیست": '#22C55E', // Green-500
+            "برق و انرژی": '#F97316', // Orange-500
+            "صنعت": '#8B5CF6', // Violet-500
+            "کشاورزی": '#0EA5E9', // Sky-500
+            "شهرسازی": '#A8A29E', // Stone-500
+            "زمین‌شناسی": '#78716C', // Stone-600
+            "مخاطرات طبیعی": '#EC4899' // Pink-500
+        };
+
+        let radarChartInstance = null; // To store the Chart.js instance for the radar chart
+        let scatterChartInstance = null; // To store the Chart.js instance for the scatter chart
+        let currentSelectedDomains = ["همه"]; // Array to store currently active domain filters, initialized to "همه" (All)
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Global Domain Filtering Setup ---
+            const domainFilterButtons = document.querySelectorAll('#domain-filter-buttons .domain-filter-button');
+
+            // Initialize with "همه" (All) selected
+            document.querySelector('.domain-filter-button[data-domain="همه"]').classList.add('active');
+
+            domainFilterButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const domain = button.dataset.domain;
+
+                    // Remove 'active' class from all buttons
+                    domainFilterButtons.forEach(btn => btn.classList.remove('active'));
+                    // Add 'active' class to the clicked button
+                    button.classList.add('active');
+
+                    if (domain === "همه") {
+                        currentSelectedDomains = ["همه"]; // Select all domains
+                    } else {
+                        currentSelectedDomains = [domain]; // Select only the clicked domain
+                    }
+                    
+                    // Update all charts and dropdowns based on new filter
+                    updateAllChartsAndDropdowns();
+                });
+            });
+
+            /**
+             * Updates the content of the project details section based on the selected project name.
+             * @param {string} projectName - The name of the project to display details for.
+             */
+            const updateProjectDetailContent = (projectName) => {
+                const detailContent = document.getElementById('project-detail-content');
+                const details = projectDetailsData[projectName];
+                if (details) {
+                    let htmlContent = `<h3>${projectName}</h3>`;
+                    htmlContent += `<div class="detail-item"><strong>📊 داده‌های مورد نیاز:</strong> <p>${details.data_used}</p></div>`;
+                    htmlContent += `<div class="detail-item"><strong>🧠 الگوریتم‌ها:</strong> <p>${details.algorithms}</p></div>`;
+                    htmlContent += `<div class="detail-item"><strong>🛠️ مراحل اجرا:</strong> <p>${details.execution_steps}</p></div>`;
+                    htmlContent += `<div class="detail-item"><strong>💰 جزئیات هزینه:</strong> <p>${details.cost_details}</p></div>`;
+                    htmlContent += `<div class="detail-item"><strong>⏱️ جزئیات زمان انجام:</strong> <p>${details.time_details}</p></div>`;
+                    htmlContent += `<div class="detail-item"><strong>⚙️ جزئیات پیچیدگی روش:</strong> <p>${details.method_complexity_details}</p></div>`;
+                    detailContent.innerHTML = htmlContent;
+                } else {
+                    detailContent.innerHTML = '<p class="text-stone-500">❌ اطلاعاتی برای این پروژه در دسترس نیست.</p>';
+                }
+            };
+
+            /**
+             * Updates all charts and dropdowns based on the currently selected domain filters.
+             */
+            const updateAllChartsAndDropdowns = () => {
+                let filteredProjects = projectData;
+                // Apply filtering if a specific domain is selected (not "همه")
+                if (currentSelectedDomains.length > 0 && currentSelectedDomains[0] !== "همه") {
+                    filteredProjects = projectData.filter(p => currentSelectedDomains.includes(p.حوزه));
+                }
+
+                // --- Update Project Details Dropdown ---
+                const projectDetailsDropdown = document.getElementById('project-dropdown');
+                projectDetailsDropdown.innerHTML = ''; // Clear existing options
+                if (filteredProjects.length > 0) {
+                    filteredProjects.forEach(item => {
+                        const option = document.createElement('option');
+                        option.value = item.پروژه;
+                        option.textContent = item.پروژه;
+                        projectDetailsDropdown.appendChild(option);
+                    });
+                    // Select the first project in the filtered list and update its details
+                    projectDetailsDropdown.value = filteredProjects[0].پروژه;
+                    updateProjectDetailContent(projectDetailsDropdown.value);
+                } else {
+                    // Display a "no projects found" message if the filter results in an empty list
+                    const option = document.createElement('option');
+                    option.value = "";
+                    option.textContent = "پروژه‌ای یافت نشد";
+                    projectDetailsDropdown.appendChild(option);
+                    projectDetailsDropdown.value = ""; 
+                    updateProjectDetailContent(""); // Clear details content
+                }
+
+                // --- Update Radar Chart Dropdowns ---
+                const radarProjectDropdown1 = document.getElementById('radar-project-dropdown-1');
+                const radarProjectDropdown2 = document.getElementById('radar-project-dropdown-2');
+                
+                radarProjectDropdown1.innerHTML = '';
+                radarProjectDropdown2.innerHTML = '';
+
+                if (filteredProjects.length > 0) {
+                    filteredProjects.forEach(item => {
+                        const option1 = document.createElement('option');
+                        option1.value = item.پروژه;
+                        option1.textContent = item.پروژه;
+                        radarProjectDropdown1.appendChild(option1);
+
+                        const option2 = document.createElement('option');
+                        option2.value = item.پروژه;
+                        option2.textContent = item.پروژه;
+                        radarProjectDropdown2.appendChild(option2);
+                    });
+                    // Set selected values for comparison, ensuring they are valid for the filtered list
+                    radarProjectDropdown1.value = filteredProjects[0].پروژه;
+                    radarProjectDropdown2.value = filteredProjects.length > 1 ? filteredProjects[1].پروژه : filteredProjects[0].پروژه;
+                } else {
+                    // Display "no projects found" in radar dropdowns
+                    const option = document.createElement('option');
+                    option.value = "";
+                    option.textContent = "پروژه‌ای یافت نشد";
+                    radarProjectDropdown1.appendChild(option);
+                    radarProjectDropdown2.appendChild(option.cloneNode(true));
+                }
+                updateRadarChart(radarProjectDropdown1.value, radarProjectDropdown2.value);
+
+                // --- Update Scatter Chart ---
+                updateScatterChart(filteredProjects);
+
+                // --- Update Mapbox Chart ---
+                updateMapboxChart(filteredProjects);
+
+                // --- Update Sunburst Chart (highlighting, not filtering entirely, for context) ---
+                updateSunburstChart(currentSelectedDomains);
+
+                // --- Update Key Metrics ---
+                updateKeyMetrics(filteredProjects);
+
+                // --- Render Project Timeline ---
+                renderProjectTimeline(filteredProjects);
+            };
+
+
+            // --- Project Details Dropdown Event Listener ---
+            const projectDetailsDropdown = document.getElementById('project-dropdown');
+            projectDetailsDropdown.addEventListener('change', (event) => {
+                updateProjectDetailContent(event.target.value);
+            });
+
+
+            /**
+             * Updates the Radar Chart based on the two selected project names for comparison.
+             * @param {string} project1Name - The name of the first project.
+             * @param {string} project2Name - The name of the second project.
+             */
+            const updateRadarChart = (project1Name, project2Name) => {
+                const project1 = projectData.find(p => p.پروژه === project1Name);
+                const project2 = projectData.find(p => p.پروژه === project2Name);
+
+                // Destroy existing chart if no projects are selected to prevent errors
+                if (!project1 && !project2) {
+                    if (radarChartInstance) radarChartInstance.destroy();
+                    radarChartInstance = null;
+                    return;
+                }
+
+                const datasets = [];
+                if (project1) {
+                    datasets.push({
+                        label: project1.پروژه,
+                        data: [project1.اهمیت, project1.فوریت, project1.هزینه, project1.زمان_انجام, project1.پیچیدگی_روش],
+                        backgroundColor: 'rgba(14, 165, 233, 0.4)', // Sky-500 with transparency
+                        borderColor: domainColors["کشاورزی"], // Using a solid color from the new palette
+                        borderWidth: 2,
+                        pointBackgroundColor: '#0c4a6e', // Sky-800
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#0c4a6e'
+                    });
+                }
+                if (project2 && project1Name !== project2Name) { // Only add second dataset if it's a different project
+                    datasets.push({
+                        label: project2.پروژه,
+                        data: [project2.اهمیت, project2.فوریت, project2.هزینه, project2.زمان_انجام, project2.پیچیدگی_روش],
+                        backgroundColor: 'rgba(236, 72, 153, 0.4)', // Pink-500 with transparency
+                        borderColor: domainColors["مخاطرات طبیعی"], // Using a solid color from the new palette
+                        borderWidth: 2,
+                        pointBackgroundColor: '#c2185b', // Darker Pink
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#c2185b'
+                    });
+                }
+
+                if (radarChartInstance) {
+                    // Update existing chart data if instance exists
+                    radarChartInstance.data.datasets = datasets;
+                    radarChartInstance.update();
+                } else {
+                    // Create new chart instance if it doesn't exist
+                    const radarCtx = document.getElementById('radarChart').getContext('2d');
+                    radarChartInstance = new Chart(radarCtx, {
+                        type: 'radar',
+                        data: {
+                            labels: ['اهمیت', 'فوریت', 'هزینه', 'زمان انجام', 'پیچیدگی روش'],
+                            datasets: datasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            elements: {
+                                line: {
+                                    tension: 0.1
+                                }
+                            },
+                            scales: {
+                                r: {
+                                    angleLines: { display: true, color: 'rgba(100, 100, 100, 0.2)' },
+                                    grid: { color: 'rgba(100, 100, 100, 0.2)' },
+                                    pointLabels: {
+                                        font: { family: 'Vazirmatn', size: 14 },
+                                        color: '#44403c'
+                                    },
+                                    ticks: {
+                                        display: true,
+                                        beginAtZero: true,
+                                        max: 10,
+                                        stepSize: 2,
+                                        color: '#57534e',
+                                        backdropColor: 'rgba(0,0,0,0)',
+                                        font: { family: 'Vazirmatn' }
+                                    },
+                                    suggestedMin: 0,
+                                    suggestedMax: 10
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    display: true, // Show legend for comparison
+                                    position: 'bottom',
+                                    labels: {
+                                        font: { family: 'Vazirmatn', size: 12 }
+                                    }
+                                },
+                                tooltip: {
+                                    bodyFont: { family: 'Vazirmatn' },
+                                    titleFont: { family: 'Vazirmatn' },
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: ${context.label}: ${context.parsed.r}`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            };
+
+            // Radar dropdown event listeners
+            document.getElementById('radar-project-dropdown-1').addEventListener('change', (event) => updateRadarChart(event.target.value, document.getElementById('radar-project-dropdown-2').value));
+            document.getElementById('radar-project-dropdown-2').addEventListener('change', (event) => updateRadarChart(document.getElementById('radar-project-dropdown-1').value, event.target.value));
+
+
+            /**
+             * Updates the Scatter Chart based on the filtered projects.
+             * @param {Array<Object>} filteredProjects - An array of project data objects.
+             */
+            const updateScatterChart = (filteredProjects) => {
+                if (scatterChartInstance) {
+                    scatterChartInstance.destroy(); // Destroy old instance to re-create
+                }
+                const scatterCtx = document.getElementById('urgencyScatterChart').getContext('2d');
+                scatterChartInstance = new Chart(scatterCtx, {
+                    type: 'scatter',
+                    data: {
+                        datasets: filteredProjects.map(item => ({
+                            label: item.پروژه,
+                            data: [{ x: item.اهمیت, y: item.فوریت }],
+                            // Use solid colors from the new palette for scatter points
+                            backgroundColor: domainColors[item.حوزه] || '#78716C', // Fallback to stone-600
+                            borderColor: domainColors[item.حوزه] || '#78716C',
+                            pointRadius: 8,
+                            pointHoverRadius: 10
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { title: { display: true, text: 'اهمیت', font: { family: 'Vazirmatn', size: 14 } }, ticks: { font: { family: 'Vazirmatn' } } },
+                            y: { title: { display: true, text: 'فوریت', font: { family: 'Vazirmatn', size: 14 } }, ticks: { font: { family: 'Vazirmatn' } } }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                bodyFont: { family: 'Vazirmatn' },
+                                titleFont: { family: 'Vazirmatn' },
+                                callbacks: {
+                                    label: function(context) {
+                                        const item = projectData.find(p => p.پروژه === context.dataset.label);
+                                        return [
+                                            `پروژه: ${item.پروژه}`,
+                                            `اهمیت: ${item.اهمیت}`,
+                                            `فوریت: ${item.فوریت}`,
+                                            `حوزه: ${item.حوزه}`
+                                        ];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            };
+            
+            /**
+             * Updates the Mapbox Scatter Plot based on the filtered projects.
+             * @param {Array<Object>} filteredProjects - An array of project data objects.
+             */
+            const updateMapboxChart = (filteredProjects) => {
+                const mapData = [{
+                    type: 'scattermapbox',
+                    lat: filteredProjects.map(p => p.lat),
+                    lon: filteredProjects.map(p => p.lon),
+                    mode: 'markers',
+                    marker: {
+                        size: filteredProjects.map(p => p.اهمیت * 2.5),
+                        // Use solid colors from the new palette for map markers
+                        color: filteredProjects.map(p => domainColors[p.حوزه] || '#78716C'), // Fallback to stone-600
+                        opacity: 0.8
+                    },
+                    text: filteredProjects.map(p => p.پروژه),
+                    hoverinfo: 'text',
+                    customdata: filteredProjects.map(p => p.حوزه)
+                }];
+
+                const mapLayout = {
+                    font: { family: 'Vazirmatn, sans-serif' },
+                    mapbox: {
+                        style: 'carto-positron', // A light, neutral map style
+                        center: { lat: 30.7, lon: 51.5 }, // Centered on Kohgiluyeh and Boyer-Ahmad
+                        zoom: 7 // Adjusted zoom for the province
+                    },
+                    margin: { r: 0, t: 0, b: 0, l: 0 },
+                    paper_bgcolor: 'rgba(0,0,0,0)', // Transparent background
+                    plot_bgcolor: 'rgba(0,0,0,0)' // Transparent plot area
+                };
+                Plotly.newPlot('mapBoxPlot', mapData, mapLayout, {responsive: true});
+            };
+
+
+            /**
+             * Updates the Sunburst Chart, highlighting segments based on selected domains.
+             * @param {string[]} selectedDomains - An array of currently selected domain filters (e.g., ["همه"], ["نفت و گاز"]).
+             */
+            const updateSunburstChart = (selectedDomains) => {
+                const sunburstLabels = [];    // Labels for each segment
+                const sunburstParents = [];   // Parent ID for each segment, defining hierarchy
+                const sunburstValues = [];    // Value for each segment (used for size, aggregated by 'branchvalues')
+                const sunburstIds = [];       // Unique ID for each segment
+                const sunburstCustomData = [];// Custom data for hover templates
+                const sunburstColors = [];    // Colors for each segment
+
+                // Get all unique domains from projectData
+                const allDomainsList = Array.from(new Set(projectData.map(p => p.حوزه)));
+
+                // 1. Add Category Nodes (Domains) as the first level
+                allDomainsList.forEach(domain => {
+                    // Calculate the sum of importance for all activities (and their sub-activities) within this domain
+                    let sumOfActivitiesImportance = 0;
+                    sunburstRawData.filter(item => item['دسته'] === domain).forEach(item => {
+                        const fullProjectName = activityToProjectMap[item['فعالیت']];
+                        const projectDetails = projectDetailsData[fullProjectName];
+                        if (projectDetails && projectDetails.sub_activities && projectDetails.sub_activities.length > 0) {
+                            sumOfActivitiesImportance += projectDetails.sub_activities.reduce((sum, sub) => sum + sub.value_contribution, 0);
+                        } else {
+                            sumOfActivitiesImportance += item['اهمیت'];
+                        }
+                    });
+
+                    sunburstIds.push(domain);
+                    sunburstLabels.push(domain);
+                    sunburstParents.push(""); // Root level has no parent
+                    sunburstValues.push(sumOfActivitiesImportance); // Explicitly set value as sum of children
+                    sunburstCustomData.push({ type: 'category' });
+                    
+                    // Apply color based on global filter
+                    if (selectedDomains.includes("همه") || selectedDomains.includes(domain)) {
+                        sunburstColors.push(domainColors[domain]); // Solid color if selected or "all"
+                    } else {
+                        sunburstColors.push('rgba(200, 200, 200, 0.2)'); // Faded color if not selected
+                    }
+                });
+
+                // 2. Add Activity Nodes (Projects) as the second level
+                sunburstRawData.forEach(item => {
+                    const activityId = `${item['دسته']}-${item['فعالیت']}`; // Create unique ID for activity
+                    const fullProjectName = activityToProjectMap[item['فعالیت']];
+                    const projectDetails = projectDetailsData[fullProjectName]; // Get detailed info for sub-activities
+
+                    sunburstIds.push(activityId);
+                    sunburstLabels.push(item['فعالیت']);
+                    sunburstParents.push(item['دسته']); // Parent is the domain
+
+                    let activityValue;
+                    let subActivitiesExist = false;
+
+                    // Check if projectDetails and sub_activities exist for this project
+                    if (projectDetails && projectDetails.sub_activities && projectDetails.sub_activities.length > 0) {
+                        subActivitiesExist = true;
+                        // If sub-activities exist, sum their contributions for the activity's value.
+                        // This ensures the activity slice size reflects its detailed components.
+                        activityValue = projectDetails.sub_activities.reduce((sum, sub) => sum + sub.value_contribution, 0); 
+                    } else {
+                        // If no sub-activities, use the project's importance directly for its value.
+                        activityValue = item['اهمیت']; 
+                    }
+                    sunburstValues.push(activityValue);
+
+                    // Store custom data for detailed hover information
+                    sunburstCustomData.push({
+                        type: 'activity',
+                        full_project_name: fullProjectName,
+                        data_used: projectDetails ? projectDetails.data_used : 'اطلاعات در دسترس نیست.',
+                        algorithms: projectDetails ? projectDetails.algorithms : 'اطلاعات در دسترس نیست.',
+                        cost_details: projectDetails ? projectDetails.cost_details : 'اطلاعات در دسترس نیست.',
+                        time_details: projectDetails ? projectDetails.time_details : 'اطلاعات در دسترس نیست.',
+                        method_complexity_details: projectDetails ? projectDetails.method_complexity_details : 'اطلاعات در دسترس نیست.'
+                    });
+
+                    // Apply color based on global filter, slightly darkening for activities
+                    if (selectedDomains.includes("همه") || selectedDomains.includes(item['دسته'])) {
+                        sunburstColors.push(adjustColorBrightness(domainColors[item['دسته']], -20)); // Darken slightly
+                    } else {
+                        sunburstColors.push('rgba(200, 200, 200, 0.2)'); // Faded color if not selected
+                    }
+
+                    // 3. Add Sub-activity/Method Nodes as the third level
+                    if (subActivitiesExist) {
+                        projectDetails.sub_activities.forEach(sub => {
+                            const subActivityId = `${activityId}-${sub.label}`; // Unique ID for sub-activity
+                            sunburstIds.push(subActivityId);
+                            sunburstLabels.push(sub.label);
+                            sunburstParents.push(activityId); // Parent is the activity
+                            sunburstValues.push(sub.value_contribution); // Use sub-activity's contribution directly
+
+                            // Store custom data for detailed hover information
+                            sunburstCustomData.push({
+                                type: 'sub-activity',
+                                full_project_name: fullProjectName,
+                                sub_activity_description: sub.description,
+                                data_used: projectDetails.data_used,
+                                algorithms: projectDetails.algorithms,
+                                cost_details: projectDetails.cost_details,
+                                time_details: projectDetails.time_details,
+                                method_complexity_details: projectDetails.method_complexity_details
+                            });
+                            // Apply color based on global filter, further darkening for sub-activities
+                            if (selectedDomains.includes("همه") || selectedDomains.includes(item['دسته'])) {
+                                sunburstColors.push(adjustColorBrightness(domainColors[item['دسته']], -40)); // Darken more
+                            } else {
+                                sunburstColors.push('rgba(200, 200, 200, 0.1)'); // Even more faded
+                            }
+                        });
+                    }
+                });
+                
+                // Define the Sunburst trace
+                const sunburstTrace = {
+                    type: 'sunburst',
+                    ids: sunburstIds,
+                    labels: sunburstLabels,
+                    parents: sunburstParents,
+                    values: sunburstValues,
+                    marker: {
+                        colors: sunburstColors, // Apply dynamically generated colors
+                        line: { width: 1, color: '#ffffff' } // Add white lines between segments for clarity
+                    },
+                    branchvalues: 'total', // Crucial: Parent slice size is sum of its children's values
+                    outsidetextfont: { size: 14, color: "#333", family: 'Vazirmatn, sans-serif' }, // Font for outside labels
+                    textfont: { size: 12, color: "#fff", family: 'Vazirmatn, sans-serif' }, // Font for inside labels
+                    insidetextorientation: 'radial', // Orient inside text radially
+                    hovertemplate: (point) => { // Custom hover template for rich information
+                        const details = point.customdata; 
+                        if (!details) { // Fallback for any unexpected missing customdata
+                            return `<b>${point.label}</b><extra></extra>`; 
+                        }
+
+                        if (details.type === 'sub-activity') {
+                            return `<b>مرحله/روش: ${point.label}</b><br>` +
+                                   `پروژه: ${details.full_project_name || 'نامشخص'}<br>` + 
+                                   `توضیحات: ${details.sub_activity_description || 'نامشخص'}<br>` +
+                                   `اهمیت این مرحله: ${point.value.toFixed(1)}<br>` +
+                                   `<b>داده‌ها:</b> ${details.data_used || 'نامشخص'}<br>` +
+                                   `<b>الگوریتم‌ها:</b> ${details.algorithms || 'نامشخص'}<br>` +
+                                   `<b>هزینه:</b> ${details.cost_details || 'نامشخص'}<br>` +
+                                   `<b>زمان:</b> ${details.time_details || 'نامشخص'}<br>` +
+                                   `<b>پیچیدگی:</b> ${details.method_complexity_details || 'نامشخص'}<extra></extra>`;
+                        } else if (details.type === 'activity') {
+                            return `<b>پروژه: ${point.label}</b><br>` +
+                                   `اهمیت: ${point.value.toFixed(1)}<br>` +
+                                   `${(point.percentParent * 100).toFixed(1)}% از حوزه<br>` +
+                                   `<b>هزینه:</b> ${details.cost_details || 'نامشخص'}<br>` +
+                                   `<b>زمان:</b> ${details.time_details || 'نامشخص'}<br>` +
+                                   `<b>پیچیدگی:</b> ${details.method_complexity_details || 'نامشخص'}<extra></extra>`;
+                        } else { // Category (Domain)
+                            return `<b>حوزه: ${point.label}</b><br>` +
+                                   `مجموع اهمیت: ${point.value.toFixed(1)}<extra></extra>`;
+                        }
+                    }
+                };
+
+                // Define the Sunburst layout
+                const sunburstLayout = {
+                    margin: { l: 10, r: 10, b: 10, t: 10 }, // Minimal margins
+                    paper_bgcolor: 'rgba(0,0,0,0)', // Transparent paper background
+                    plot_bgcolor: 'rgba(0,0,0,0)',   // Transparent plot background
+                    font: { family: 'Vazirmatn, sans-serif' } // Consistent font
+                };
+
+                // Plot the Sunburst chart
+                Plotly.newPlot('sunburstChart', [sunburstTrace], sunburstLayout, {responsive: true});
+            };
+
+            /**
+             * Helper function to adjust the brightness of a hexadecimal color.
+             * @param {string} hex - The hexadecimal color string (e.g., "#RRGGBB" or "RRGGBB").
+             * @param {number} percent - The percentage to adjust brightness (-100 for black, 0 for no change, 100 for white).
+             * @returns {string} The adjusted hexadecimal color string.
+             */
+            function adjustColorBrightness(hex, percent) {
+                // Remove '#' if present
+                hex = hex.replace(/^\s*#|\s*$/g, '');
+
+                // Convert 3-character hex codes to 6-character ones (e.g., 'E0F' to 'EE00FF')
+                if(hex.length === 3){
+                    hex = hex.replace(/(.)/g, '$1$1');
+                }
+
+                // Parse R, G, B values
+                var r = parseInt(hex.substr(0, 2), 16),
+                    g = parseInt(hex.substr(2, 2), 16),
+                    b = parseInt(hex.substr(4, 2), 16);
+
+                // Adjust brightness for each color component
+                return '#' +
+                    ((0 | (1 << 8) + r + (256 - r) * percent / 100).toString(16)).substr(1) +
+                    ((0 | (1 << 8) + g + (256 - g) * percent / 100).toString(16)).substr(1) +
+                    ((0 | (1 << 8) + b + (256 - b) * percent / 100).toString(16)).substr(1);
+            }
+
+            /**
+             * Updates the key metrics displayed in the dashboard based on filtered projects.
+             * @param {Array<Object>} filteredProjects - The array of projects currently displayed.
+             */
+            function updateKeyMetrics(filteredProjects) {
+                const totalProjects = filteredProjects.length;
+                const avgImportance = totalProjects > 0 ? (filteredProjects.reduce((sum, p) => sum + p.اهمیت, 0) / totalProjects).toFixed(1) : 0;
+                const activeDomains = new Set(filteredProjects.map(p => p.حوزه)).size;
+
+                document.getElementById('total-projects').textContent = totalProjects;
+                document.getElementById('avg-importance').textContent = avgImportance;
+                document.getElementById('active-domains').textContent = activeDomains;
+            }
+
+            /**
+             * Renders a simple project timeline based on project start and end dates.
+             * Assumes dates are in YYYY-MM-DD format.
+             * @param {Array<Object>} projectsToRender - The array of projects to display on the timeline.
+             */
+            function renderProjectTimeline(projectsToRender) {
+                const timelineGrid = document.getElementById('timelineGrid');
+                timelineGrid.innerHTML = ''; // Clear previous content
+
+                if (projectsToRender.length === 0) {
+                    timelineGrid.innerHTML = '<p class="text-center text-stone-500 col-span-full">داده‌ای برای نمودار زمانی یافت نشد.</p>';
+                    return;
+                }
+
+                // Determine the overall time range
+                let minDate = new Date(Math.min(...projectsToRender.map(p => new Date(p.start_date))));
+                let maxDate = new Date(Math.max(...projectsToRender.map(p => new Date(p.end_date))));
+
+                // Extend range slightly for better visualization
+                minDate.setMonth(minDate.getMonth() - 1);
+                maxDate.setMonth(maxDate.getMonth() + 1);
+
+                const months = [];
+                let currentMonth = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+                while (currentMonth <= maxDate) {
+                    months.push(new Date(currentMonth));
+                    currentMonth.setMonth(currentMonth.getMonth() + 1);
+                }
+
+                // Create month headers
+                let headerRow = `<div class="timeline-header">پروژه</div>`;
+                months.forEach(month => {
+                    headerRow += `<div class="timeline-header timeline-month">${month.toLocaleString('fa-IR', { month: 'short', year: '2-digit' })}</div>`;
+                });
+                timelineGrid.style.gridTemplateColumns = `150px repeat(${months.length}, minmax(100px, 1fr))`;
+                timelineGrid.innerHTML += headerRow;
+
+                // Render each project's timeline bar
+                projectsToRender.forEach(project => {
+                    const projectStartDate = new Date(project.start_date);
+                    const projectEndDate = new Date(project.end_date);
+
+                    let projectRow = `<div class="timeline-project-name">${project.پروژه}</div>`;
+
+                    months.forEach(month => {
+                        const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
+                        const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0); // Last day of the month
+
+                        const isProjectActiveInMonth = (projectStartDate <= monthEnd && projectEndDate >= monthStart);
+
+                        if (isProjectActiveInMonth) {
+                            // Calculate percentage of bar within this month
+                            const overlapStart = Math.max(projectStartDate.getTime(), monthStart.getTime());
+                            const overlapEnd = Math.min(projectEndDate.getTime(), monthEnd.getTime());
+                            
+                            const totalMonthDays = (monthEnd.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24) + 1;
+                            const overlapDays = (overlapEnd - overlapStart) / (1000 * 60 * 60 * 24) + 1; // +1 to include end day
+                            
+                            const barWidth = (overlapDays / totalMonthDays) * 100;
+                            const offsetLeft = (overlapStart - monthStart.getTime()) / (1000 * 60 * 60 * 24) / totalMonthDays * 100;
+
+                            projectRow += `
+                                <div class="timeline-cell relative timeline-empty">
+                                    <div class="timeline-bar absolute top-1 bottom-1" 
+                                        style="left: ${offsetLeft}%; width: ${barWidth}%; background-color: ${domainColors[project.حوزه] || '#38bdf8'};"
+                                        title="${project.پروژه}: ${project.start_date} تا ${project.end_date}">
+                                        ${project.پروژه}
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            projectRow += `<div class="timeline-cell timeline-empty"></div>`;
+                        }
+                    });
+                    timelineGrid.innerHTML += projectRow;
+                });
+            }
+
+            // Initial load of all charts and dropdowns when the DOM is ready
+            updateAllChartsAndDropdowns();
+        });
+    </script>
+</body>
+</html>
